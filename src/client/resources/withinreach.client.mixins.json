@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "com.bambookat.withinreach.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"ExampleClientMixin",
+		"AbstractContainerScreenAccessor",
+		"ScreenAccessor",
+		"AbstractRecipeBookScreenMixin",
+		"CreativeModeTabsAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

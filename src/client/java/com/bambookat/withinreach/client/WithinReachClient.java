@@ -1,0 +1,129 @@
+package com.bambookat.withinreach.client;
+
+import com.bambookat.withinreach.InventoryListPayload;
+import com.bambookat.withinreach.RequestListPayload;
+import com.bambookat.withinreach.client.mixin.AbstractContainerScreenAccessor;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractFurnaceScreen;
+import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.chat.Component;
+
+public class WithinReachClient implements ClientModInitializer {
+	@Override
+	public void onInitializeClient() {
+		ClientPlayNetworking.registerGlobalReceiver(InventoryListPayload.TYPE, (payload, context) -> {
+			ChestPanelWidget.setEntries(payload.entries());
+			var current = context.client().gui.screen();
+			if (current instanceof WithinReachScreen screen) {
+				screen.setEntries(payload.entries());
+			} else if (current == null) {
+				context.client().gui.setScreen(new WithinReachScreen(payload.entries(), null));
+			}
+		});
+
+		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+			if (!(screen instanceof AbstractContainerScreen<?>)) return;
+			if (screen instanceof CreativeModeInventoryScreen) return;
+
+			boolean recipeScreen;
+			int bx, by;
+			if (screen instanceof InventoryScreen) {
+				recipeScreen = true;
+				bx = 128;
+				by = 61;
+			} else if (screen instanceof CraftingScreen) {
+				recipeScreen = true;
+				bx = 5;
+				by = 54;
+			} else if (screen instanceof AbstractFurnaceScreen<?>) {
+				recipeScreen = true;
+				bx = 20;
+				by = 54;
+			} else {
+				recipeScreen = false;
+				bx = -22;
+				by = 4;
+			}
+
+			var accessor = (AbstractContainerScreenAccessor) screen;
+
+			ChestPanelWidget panel = new ChestPanelWidget(0, 0);
+
+			EditBox searchBox = new EditBox(client.font, 0, 0, 80, 14, Component.literal("Search"));
+			searchBox.setHint(Component.literal("Search..."));
+			searchBox.setMaxLength(40);
+			searchBox.setValue(ChestPanelWidget.getFilter());
+			searchBox.setResponder(ChestPanelWidget::setFilter);
+			searchBox.setBordered(false);
+			searchBox.setTextColor(0xFFFFFFFF);
+
+			Button button = Button.builder(Component.literal("WR"), b -> {
+						if (recipeScreen) {
+							ChestPanelWidget.open = !ChestPanelWidget.open;
+							client.execute(() -> screen.init(scaledWidth, scaledHeight));
+						} else {
+							panel.toggle();
+							if (ChestPanelWidget.open) {
+								ClientPlayNetworking.send(new RequestListPayload());
+							}
+						}
+					})
+					.bounds(0, 0, 20, 18)
+					.build();
+
+			Runnable reposition = () -> {
+				int fullWidth = client.getWindow().getGuiScaledWidth();
+				int left = accessor.getLeftPos();
+				int top = accessor.getTopPos();
+				int panelX = left + accessor.getImageWidth() + 4;
+				int panelY = Math.max(0, top - ChestPanelWidget.TABS_H);
+				panel.layout(fullWidth - panelX - 4);
+				panel.setX(panelX);
+				panel.setY(panelY);
+				searchBox.setX(panelX + 11);
+				searchBox.setY(panelY + ChestPanelWidget.TABS_H + 20);
+				searchBox.setWidth(panel.searchWidth() - 8);
+				searchBox.visible = panel.visible;
+				button.setX(left + bx);
+				button.setY(top + by);
+			};
+			reposition.run();
+
+			Screens.getWidgets(screen).add(panel);
+			Screens.getWidgets(screen).add(searchBox);
+			Screens.getWidgets(screen).add(button);
+
+			// mentre scrivi nella barra, i tasti (come E) non devono chiudere la schermata
+			ScreenKeyboardEvents.allowKeyPress(screen).register((s, event) -> {
+				if (searchBox.visible && searchBox.canConsumeInput() && event.key() != 256) {
+					searchBox.keyPressed(event);
+					return false;
+				}
+				return true;
+			});
+
+			ScreenEvents.beforeExtract(screen).register((s, graphics, mouseX, mouseY, delta) -> {
+				reposition.run();
+				int fullWidth = client.getWindow().getGuiScaledWidth();
+				if (fullWidth > s.width) {
+					graphics.fillGradient(s.width, 0, fullWidth, s.height, 0xC0101010, 0xD0101010);
+				}
+			});
+
+			ScreenEvents.remove(screen).register(s -> ChestPanelWidget.reset());
+
+			if (ChestPanelWidget.open) {
+				ClientPlayNetworking.send(new RequestListPayload());
+			}
+		});
+	}
+}
