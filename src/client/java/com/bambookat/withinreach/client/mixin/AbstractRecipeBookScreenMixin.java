@@ -20,7 +20,7 @@ public abstract class AbstractRecipeBookScreenMixin {
         ScreenAccessor screen = (ScreenAccessor) (Object) this;
         int w = screen.getScreenWidth();
         if (w != withinreach$lastReduced) {
-            int reduced = w - 80;
+            int reduced = w - ChestPanelWidget.shiftFor(w);
             screen.setScreenWidth(reduced);
             withinreach$lastReduced = reduced;
         }

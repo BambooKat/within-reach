@@ -6,37 +6,41 @@ import com.bambookat.withinreach.TakeItemPayload;
 import com.bambookat.withinreach.client.mixin.CreativeModeTabsAccessor;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class ChestPanelWidget extends AbstractWidget {
 
-    public static final int TABS_H = 24;
+    public static final int TABS_H = 28;
+    public static final int BODY_H = 166;
 
     private static final int SLOT = 18;
     private static final int MIN_COLUMNS = 5;
     private static final int MAX_COLUMNS = 9;
     private static final int ROWS = 6;
     private static final int GRID_TOP = 34;
-    private static final int BODY_H = GRID_TOP + ROWS * SLOT + 26;
     private static final int ARROW_W = 16;
     private static final int ARROW_H = 14;
-    private static final int TAB_W = 18;
-    private static final int TAB_H_SEL = 22;
-    private static final int TAB_H_UNSEL = 19;
-    private static final int TAB_ARROW_W = 12;
+    private static final int TAB_W = 26;
+    private static final int TAB_PITCH = 27;
+    private static final int TAB_HIT_H = 28;
+    private static final int TAB_ARROW_W = 11;
+    private static final int TAB_ARROW_H = 12;
 
     private record TabInfo(ItemStack icon, Component name, CreativeModeTab tab) {}
 
@@ -44,6 +48,8 @@ public class ChestPanelWidget extends AbstractWidget {
 
     private static final TabInfo ALL_TAB =
             new TabInfo(new ItemStack(Items.COMPASS), Component.literal("All"), null);
+
+    private static final Map<String, Identifier> SPRITES = new HashMap<>();
 
     private static List<TabInfo> tabs = null;
     private static int selectedTab = 0;
@@ -82,6 +88,13 @@ public class ChestPanelWidget extends AbstractWidget {
         tabPage = 0;
         page = 0;
         rebuildView();
+    }
+
+    /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
+    public static int shiftFor(int fullWidth) {
+        int cols = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, (fullWidth - 380) / SLOT));
+        int panelW = cols * SLOT + 14;
+        return Math.max(0, Math.min(panelW - 20, fullWidth - 379));
     }
 
     // ---- categorie (le stesse del creativo) ----
@@ -173,7 +186,7 @@ public class ChestPanelWidget extends AbstractWidget {
     // ---- tab: due file (sopra e sotto), "All" sempre fissa in alto a sinistra ----
 
     private int tabsPerRow() {
-        return Math.max(1, width / (TAB_W + 1));
+        return Math.max(1, width / TAB_PITCH);
     }
 
     private int tabPageSize() {
@@ -204,27 +217,19 @@ public class ChestPanelWidget extends AbstractWidget {
     }
 
     private int tabX(int col) {
-        return getX() + col * (TAB_W + 1);
-    }
-
-    private int tabY(int row, boolean selected) {
-        if (row == 0) return getY() + (selected ? 2 : 5);
-        return bodyBottom();
+        return getX() + col * TAB_PITCH;
     }
 
     private int tabHitY(int row) {
-        return row == 0 ? getY() + 2 : bodyBottom();
+        return row == 0 ? getY() : bodyBottom();
     }
 
-    private int searchArrowsW() {
-        return needTabArrows() ? 2 * TAB_ARROW_W + 3 : 0;
-    }
-
-    /** Larghezza della barra di ricerca (lascia posto alle frecce delle tab). */
+    /** Larghezza della barra di ricerca. */
     public int searchWidth() {
-        return width - 14 - searchArrowsW();
+        return width - 14;
     }
 
+    // frecce delle tab: nella riga del titolo, in alto a destra (come nel creativo)
     private int arrowPrevX() {
         return getX() + width - 7 - 2 * TAB_ARROW_W - 1;
     }
@@ -234,58 +239,130 @@ public class ChestPanelWidget extends AbstractWidget {
     }
 
     private int arrowY() {
-        return bodyY() + 17;
+        return bodyY() + 3;
     }
 
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
+    private boolean overTabArrow(double mx, double my) {
+        if (!needTabArrows()) return false;
+        return inside((int) mx, (int) my, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)
+                || inside((int) mx, (int) my, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
+    }
+
     @Override
     public boolean isMouseOver(double mouseX, double mouseY) {
         if (!this.visible) return false;
-        // la barra di ricerca (titolo + campo) gestisce i suoi click da sola
+        // titolo e barra di ricerca: la gestisce la barra, tranne le frecce delle tab
         if (mouseY >= bodyY() && mouseY < bodyY() + GRID_TOP - 2) {
-            if (mouseX < getX() + 7 + searchWidth()) return false;
+            return overTabArrow(mouseX, mouseY);
         }
         return super.isMouseOver(mouseX, mouseY);
     }
 
     // ---- disegno ----
 
-    private void drawTab(GuiGraphicsExtractor g, Placed p, TabInfo info, boolean selected) {
-        int x = tabX(p.col());
-        int y = tabY(p.row(), selected);
-        int h = selected ? TAB_H_SEL : TAB_H_UNSEL;
-        g.fill(x, y, x + TAB_W, y + h, selected ? 0xFFC6C6C6 : 0xFF8B8B8B);
-        g.outline(x, y, TAB_W, h, 0xFF000000);
-        if (selected) {
-            if (p.row() == 0) {
-                g.fill(x + 1, bodyY(), x + TAB_W - 1, bodyY() + 1, 0xFFC6C6C6);
-            } else {
-                g.fill(x + 1, bodyBottom() - 1, x + TAB_W - 1, bodyBottom(), 0xFFC6C6C6);
-            }
+    private static Identifier sprite(boolean top, boolean selected, int n) {
+        String key = (top ? "top" : "bottom") + (selected ? "_selected_" : "_unselected_") + n;
+        return SPRITES.computeIfAbsent(key, k -> Identifier.withDefaultNamespace(
+                "textures/gui/sprites/container/creative_inventory/tab_" + k + ".png"));
+    }
+
+    private void drawPanel(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, 0xFFC6C6C6);
+        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFFFFFFFF);
+        g.fill(x + 1, y + 1, x + 2, y + h - 1, 0xFFFFFFFF);
+        g.fill(x + 2, y + h - 2, x + w - 1, y + h - 1, 0xFF555555);
+        g.fill(x + w - 2, y + 2, x + w - 1, y + h - 1, 0xFF555555);
+        g.outline(x, y, w, h, 0xFF000000);
+    }
+
+    private void drawSlot(GuiGraphicsExtractor g, int x, int y) {
+        int s = SLOT;
+        g.fill(x, y, x + s, y + s, 0xFF8B8B8B);
+        g.outline(x, y, s, s, 0xFFA83232);
+    }
+
+    private void drawInset(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, 0xFF373737);
+        g.fill(x, y + h - 1, x + w, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFFFFFFFF);
+    }
+
+    private void drawTriangle(GuiGraphicsExtractor g, int x, int y, boolean right,
+                              boolean enabled, boolean hover) {
+        int color = !enabled ? 0xFF606060 : hover ? 0xFFFFFF55 : 0xFFFFFFFF;
+        for (int i = 0; i < 6; i++) {
+            int cx = right ? x + i : x + 5 - i;
+            g.fill(cx, y + i, cx + 1, y + 11 - i, color);
         }
-        int iconY = y + (selected ? 3 : 2);
-        g.item(info.icon(), x + 1, iconY);
     }
 
-    private void drawSmallArrow(GuiGraphicsExtractor g, Font font, int x, int y, String label,
-                                boolean enabled, int mx, int my) {
-        boolean hover = enabled && inside(mx, my, x, y, TAB_ARROW_W, ARROW_H);
-        g.fill(x, y, x + TAB_ARROW_W, y + ARROW_H, hover ? 0xFFA8A8A8 : 0xFF8B8B8B);
-        g.outline(x, y, TAB_ARROW_W, ARROW_H, 0xFF000000);
-        g.text(font, label, x + TAB_ARROW_W / 2 - font.width(label) / 2, y + 3,
-                enabled ? 0xFFFFFFFF : 0xFF606060, false);
+    private void drawPageArrow(GuiGraphicsExtractor g, int x, int y, boolean forward,
+                               boolean enabled, boolean hover) {
+        if (!enabled) return;
+        String name = (forward ? "page_forward" : "page_backward") + (hover ? "_highlighted" : "");
+        Identifier id = SPRITES.computeIfAbsent("recipe_" + name, k -> Identifier.withDefaultNamespace(
+                "textures/gui/sprites/recipe_book/" + name + ".png"));
+        g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, 12, 17, 12, 17);
     }
 
-    private void drawArrow(GuiGraphicsExtractor g, Font font, int x, int y, String label,
-                           boolean enabled, int mx, int my) {
-        boolean hover = enabled && inside(mx, my, x, y, ARROW_W, ARROW_H);
-        g.fill(x, y, x + ARROW_W, y + ARROW_H, hover ? 0xFFA8A8A8 : 0xFF8B8B8B);
-        g.outline(x, y, ARROW_W, ARROW_H, 0xFF000000);
-        g.text(font, label, x + ARROW_W / 2 - font.width(label) / 2, y + 3,
-                enabled ? 0xFFFFFFFF : 0xFF606060, false);
+    private void drawTinyTriangle(GuiGraphicsExtractor g, int x, int y, boolean right, int color) {
+        for (int i = 0; i < 4; i++) {
+            int cx = right ? x + i : x + 3 - i;
+            g.fill(cx, y + i, cx + 1, y + 7 - i, color);
+        }
+    }
+
+    /** Le due frecce delle tab come nel creativo: un blocco unico incassato. */
+    private void drawTabArrows(GuiGraphicsExtractor g, boolean prevOn, boolean nextOn,
+                               boolean hoverPrev, boolean hoverNext) {
+        int x = arrowPrevX();
+        int y = arrowY();
+        int w = arrowNextX() + TAB_ARROW_W - x;
+        int h = TAB_ARROW_H;
+
+        g.fill(x, y, x + w, y + h, 0xFF8B8B8B);
+        g.fill(x, y, x + w, y + 1, 0xFF373737);
+        g.fill(x, y, x + 1, y + h, 0xFF373737);
+        g.fill(x, y + h - 1, x + w, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFFFFFFFF);
+        g.fill(arrowNextX() - 1, y + 1, arrowNextX(), y + h - 1, 0xFF555555);
+
+        int on = 0xFF373737;
+        int hover = 0xFF000000;
+        int off = 0xFFA0A0A0;
+        drawTinyTriangle(g, arrowPrevX() + 3, y + 2, false,
+                !prevOn ? off : hoverPrev ? hover : on);
+        drawTinyTriangle(g, arrowNextX() + 4, y + 2, true,
+                !nextOn ? off : hoverNext ? hover : on);
+    }
+
+    private void drawTab(GuiGraphicsExtractor g, Placed p, TabInfo info, boolean selected) {
+        boolean top = p.row() == 0;
+        int n = tabsPerRow();
+        int variant = p.col() == 0 ? 1 : (p.col() == n - 1 ? 7 : 2);
+        int x = tabX(p.col());
+        Identifier tex = sprite(top, selected, variant);
+
+        if (!selected) {
+            // dietro al pannello: il suo bordo ne copre la parte che entra
+            int y = top ? getY() : bodyBottom() - 4;
+            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, TAB_W, 32, TAB_W, 32);
+            g.item(info.icon(), x + 5, top ? y + 8 : y + 10);
+        } else if (top) {
+            // sprite tagliato a 28 righe, e giunzione aperta sul bordo del pannello
+            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, getY(), 0, 0, TAB_W, 28, TAB_W, 32);
+            g.fill(x + 1, bodyY(), x + TAB_W - 1, bodyY() + 2, 0xFFC6C6C6);
+            g.item(info.icon(), x + 5, getY() + 8);
+        } else {
+            int y = bodyBottom();
+            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 4, TAB_W, 28, TAB_W, 32);
+            g.fill(x + 1, bodyBottom() - 2, x + TAB_W - 1, bodyBottom(), 0xFFC6C6C6);
+            g.item(info.icon(), x + 5, y + 6);
+        }
     }
 
     @Override
@@ -300,41 +377,38 @@ public class ChestPanelWidget extends AbstractWidget {
         tabPage = Math.max(0, Math.min(tabPage, tabPageCount() - 1));
         List<Placed> placed = placedTabs();
 
-        // tab non selezionate (dietro al pannello)
+        // tab non selezionate: dietro al pannello
         for (Placed p : placed) {
             if (p.index() != selectedTab) drawTab(graphics, p, list.get(p.index()), false);
         }
 
-        // pannello
-        graphics.fill(x0, by, x0 + width, by + BODY_H, 0xFFC6C6C6);
-        graphics.outline(x0, by, width, BODY_H, 0xFF000000);
-        graphics.text(font, "Within Reach", x0 + 7, by + 6, 0xFF404040, false);
+        // pannello con interno scuro incassato, come il ricettario
+        drawPanel(graphics, x0, by, width, BODY_H);
+        graphics.text(font, "Within Reach", x0 + 7, by + 5, 0xFF404040, false);
+        drawInset(graphics, x0 + 4, by + 15, width - 8, BODY_H - 19);
 
-        // tab selezionata (sopra il pannello, collegata dal suo lato)
+        // tab selezionata: sopra il pannello, si fonde con lui
         for (Placed p : placed) {
             if (p.index() == selectedTab) drawTab(graphics, p, list.get(p.index()), true);
         }
 
-        // sfondo del campo di ricerca, incassato come gli slot
+        // frecce per scorrere le tab (riga del titolo, in alto a destra)
+        if (needTabArrows()) {
+            boolean hp = inside(mouseX, mouseY, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
+            boolean hn = inside(mouseX, mouseY, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
+            drawTabArrows(graphics, tabPage > 0, tabPage < tabPageCount() - 1, hp, hn);
+        }
+
+        // campo di ricerca: nero con bordo chiaro
         int sx = x0 + 7;
         int sy = by + 17;
         int sw = searchWidth();
         int sh = 14;
-        graphics.fill(sx, sy, sx + sw, sy + sh, 0xFF555555);
-        graphics.fill(sx, sy, sx + sw, sy + 1, 0xFF373737);
-        graphics.fill(sx, sy, sx + 1, sy + sh, 0xFF373737);
-        graphics.fill(sx, sy + sh - 1, sx + sw, sy + sh, 0xFFFFFFFF);
-        graphics.fill(sx + sw - 1, sy, sx + sw, sy + sh, 0xFFFFFFFF);
-
-        // frecce per scorrere le tab, nella riga della ricerca
-        if (needTabArrows()) {
-            drawSmallArrow(graphics, font, arrowPrevX(), arrowY(), "<", tabPage > 0, mouseX, mouseY);
-            drawSmallArrow(graphics, font, arrowNextX(), arrowY(), ">",
-                    tabPage < tabPageCount() - 1, mouseX, mouseY);
-        }
+        graphics.fill(sx, sy, sx + sw, sy + sh, 0xFF000000);
+        graphics.outline(sx, sy, sw, sh, 0xFFA0A0A0);
 
         if (view.isEmpty()) {
-            graphics.text(font, "No results", x0 + 7, by + GRID_TOP + 4, 0xFF404040, false);
+            graphics.text(font, "No results", x0 + 7, by + GRID_TOP + 4, 0xFFFFFFFF, false);
         }
 
         ItemStack hovered = ItemStack.EMPTY;
@@ -348,7 +422,7 @@ public class ChestPanelWidget extends AbstractWidget {
             int y = by + GRID_TOP + (local / columns) * SLOT;
             ItemStack stack = new ItemStack(e.item());
 
-            graphics.fill(x, y, x + SLOT - 1, y + SLOT - 1, 0xFF8B8B8B);
+            drawSlot(graphics, x, y);
             graphics.item(stack, x + 1, y + 1);
 
             if (e.count() > 1) {
@@ -356,23 +430,26 @@ public class ChestPanelWidget extends AbstractWidget {
                 graphics.text(font, text, x + SLOT - 1 - font.width(text), y + 9, 0xFFFFFFFF, true);
             }
 
-            if (inside(mouseX, mouseY, x, y, SLOT - 1, SLOT - 1)) {
-                graphics.fill(x, y, x + SLOT - 1, y + SLOT - 1, 0x80FFFFFF);
+            if (inside(mouseX, mouseY, x, y, SLOT, SLOT)) {
+                graphics.fill(x + 1, y + 1, x + SLOT - 1, y + SLOT - 1, 0x80FFFFFF);
                 hovered = stack;
             }
         }
 
+        // pagine: triangoli bianchi come nel ricettario
         int pages = pageCount();
-        drawArrow(graphics, font, prevX(), footerY(), "<", page > 0, mouseX, mouseY);
-        drawArrow(graphics, font, nextX(), footerY(), ">", page < pages - 1, mouseX, mouseY);
+        boolean hp = inside(mouseX, mouseY, prevX(), footerY(), ARROW_W, ARROW_H);
+        boolean hn = inside(mouseX, mouseY, nextX(), footerY(), ARROW_W, ARROW_H);
+        drawPageArrow(graphics, prevX() + 2, footerY() - 1, false, page > 0, hp);
+        drawPageArrow(graphics, nextX() + 2, footerY() - 1, true, page < pages - 1, hn);
         String label = (page + 1) + "/" + pages;
-        graphics.text(font, label, x0 + width / 2 - font.width(label) / 2, footerY() + 3, 0xFF404040, false);
+        graphics.text(font, label, x0 + width / 2 - font.width(label) / 2, footerY() + 3, 0xFFFFFFFF, false);
 
         if (!hovered.isEmpty()) {
             graphics.setTooltipForNextFrame(font, hovered, mouseX, mouseY + 20);
         } else {
             for (Placed p : placed) {
-                if (inside(mouseX, mouseY, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_H_SEL)) {
+                if (inside(mouseX, mouseY, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_HIT_H)) {
                     graphics.setTooltipForNextFrame(font, list.get(p.index()).name(),
                             mouseX, mouseY + 20);
                     break;
@@ -395,7 +472,7 @@ public class ChestPanelWidget extends AbstractWidget {
         // fila di tab sopra o sotto
         if (my < by || my >= bodyBottom()) {
             for (Placed p : placedTabs()) {
-                if (inside(mx, my, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_H_SEL)) {
+                if (inside(mx, my, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_HIT_H)) {
                     selectedTab = p.index();
                     page = 0;
                     rebuildView();
@@ -405,20 +482,20 @@ public class ChestPanelWidget extends AbstractWidget {
             return false;
         }
 
-        // riga della ricerca: frecce delle tab, il resto lo gestisce la barra
-        if (my < by + GRID_TOP - 2) {
-            if (needTabArrows()) {
-                if (inside(mx, my, arrowPrevX(), arrowY(), TAB_ARROW_W, ARROW_H)) {
-                    if (tabPage > 0) tabPage--;
-                    return true;
-                }
-                if (inside(mx, my, arrowNextX(), arrowY(), TAB_ARROW_W, ARROW_H)) {
-                    if (tabPage < tabPageCount() - 1) tabPage++;
-                    return true;
-                }
+        // frecce delle tab (riga del titolo)
+        if (needTabArrows()) {
+            if (inside(mx, my, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)) {
+                if (tabPage > 0) tabPage--;
+                return true;
             }
-            return false;
+            if (inside(mx, my, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)) {
+                if (tabPage < tabPageCount() - 1) tabPage++;
+                return true;
+            }
         }
+
+        // titolo e barra di ricerca: li gestisce la barra
+        if (my < by + GRID_TOP - 2) return false;
 
         if (inside(mx, my, prevX(), footerY(), ARROW_W, ARROW_H)) {
             if (page > 0) page--;
