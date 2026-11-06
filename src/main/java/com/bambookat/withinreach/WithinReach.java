@@ -3,6 +3,7 @@ package com.bambookat.withinreach;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -17,6 +18,9 @@ public class WithinReach implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				ContainerScanner.forget(handler.getPlayer().getUUID()));
 
 		PayloadTypeRegistry.clientboundPlay().register(
 				InventoryListPayload.TYPE, InventoryListPayload.CODEC);

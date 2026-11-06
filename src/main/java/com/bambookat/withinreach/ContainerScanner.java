@@ -6,10 +6,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BarrelBlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.RandomizableContainer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,11 +37,14 @@ public class ContainerScanner {
                 LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
                 if (chunk == null) continue;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
+                    if (be instanceof TrappedChestBlockEntity) continue;
                     if (!(be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)) continue;
                     BlockPos p = be.getBlockPos();
                     if (Math.abs(p.getX() - center.getX()) > radius
                             || Math.abs(p.getY() - center.getY()) > radius
                             || Math.abs(p.getZ() - center.getZ()) > radius) continue;
+                    if (be instanceof BaseContainerBlockEntity locked && !locked.canOpen(player)) continue;
+                    if (be instanceof RandomizableContainer loot && loot.getLootTable() != null) continue;
                     result.add((Container) be);
                 }
             }
@@ -88,6 +90,10 @@ public class ContainerScanner {
         ORIGINS.computeIfAbsent(player.getUUID(), k -> new HashMap<>())
                 .computeIfAbsent(item, k -> new LinkedHashSet<>())
                 .add(be.getBlockPos().immutable());
+    }
+
+    public static void forget(UUID playerId) {
+        ORIGINS.remove(playerId);
     }
 
     public static ItemStack deposit(ServerPlayer player, ItemStack stack, int radius) {
