@@ -9,7 +9,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.RandomizableContainer;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -94,6 +103,48 @@ public class ContainerScanner {
 
     public static void forget(UUID playerId) {
         ORIGINS.remove(playerId);
+    }
+
+    public static void load(Path file) {
+        ORIGINS.clear();
+        if (!Files.exists(file)) return;
+        try {
+            JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+            for (var playerEntry : root.entrySet()) {
+                UUID player = UUID.fromString(playerEntry.getKey());
+                Map<Item, Set<BlockPos>> items = new HashMap<>();
+                for (var itemEntry : playerEntry.getValue().getAsJsonObject().entrySet()) {
+                    Identifier id = Identifier.tryParse(itemEntry.getKey());
+                    if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
+                    Set<BlockPos> positions = new LinkedHashSet<>();
+                    for (JsonElement el : itemEntry.getValue().getAsJsonArray()) {
+                        positions.add(BlockPos.of(el.getAsLong()));
+                    }
+                    items.put(BuiltInRegistries.ITEM.getValue(id), positions);
+                }
+                ORIGINS.put(player, items);
+            }
+        } catch (IOException | RuntimeException e) {
+            WithinReach.LOGGER.warn("Could not read withinreach_origins.json", e);
+        }
+    }
+
+    public static void save(Path file) {
+        JsonObject root = new JsonObject();
+        ORIGINS.forEach((player, items) -> {
+            JsonObject obj = new JsonObject();
+            items.forEach((item, positions) -> {
+                JsonArray arr = new JsonArray();
+                positions.forEach(p -> arr.add(p.asLong()));
+                obj.add(BuiltInRegistries.ITEM.getKey(item).toString(), arr);
+            });
+            root.add(player.toString(), obj);
+        });
+        try {
+            Files.writeString(file, root.toString());
+        } catch (IOException e) {
+            WithinReach.LOGGER.warn("Could not write withinreach_origins.json", e);
+        }
     }
 
     public static ItemStack deposit(ServerPlayer player, ItemStack stack, int radius) {

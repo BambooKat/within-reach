@@ -37,8 +37,8 @@ public class ChestPanelWidget extends AbstractWidget {
     private static final int TAB_W = 26;
     private static final int TAB_PITCH = 27;
     private static final int TAB_HIT_H = 28;
-    private static final int TAB_ARROW_W = 11;
-    private static final int TAB_ARROW_H = 12;
+    private static final int ARROWS_W = 20;
+    private static final int ARROWS_H = 12;
 
     private record TabInfo(ItemStack icon, Component name, CreativeModeTab tab) {}
 
@@ -249,27 +249,49 @@ public class ChestPanelWidget extends AbstractWidget {
         return width - 14;
     }
 
-    // frecce delle tab: nella riga del titolo, in alto a destra (come nel creativo)
-    private int arrowPrevX() {
-        return getX() + width - 7 - 2 * TAB_ARROW_W - 1;
+    public boolean needsTabArrows() {
+        return needTabArrows();
     }
 
-    private int arrowNextX() {
-        return getX() + width - 7 - TAB_ARROW_W;
+    public boolean canTabPrev() {
+        return tabPage > 0;
     }
 
-    private int arrowY() {
-        return bodyY() + 3;
+    public boolean canTabNext() {
+        return tabPage < tabPageCount() - 1;
+    }
+
+    public void tabPrev() {
+        if (canTabPrev()) tabPage--;
+    }
+
+    public void tabNext() {
+        if (canTabNext()) tabPage++;
+    }
+
+    // frecce delle tab: stessa forma di quelle del creativo (cornice 20x12, due bottoncini 9x10)
+    private int arrowsX() {
+        return getX() + width - 5 - ARROWS_W;
+    }
+
+    private int arrowsY() {
+        return bodyY() + 2;
     }
 
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
+    private boolean overPrevArrow(int mx, int my) {
+        return needTabArrows() && inside(mx, my, arrowsX() + 1, arrowsY() + 1, 9, 10);
+    }
+
+    private boolean overNextArrow(int mx, int my) {
+        return needTabArrows() && inside(mx, my, arrowsX() + 10, arrowsY() + 1, 9, 10);
+    }
+
     private boolean overTabArrow(double mx, double my) {
-        if (!needTabArrows()) return false;
-        return inside((int) mx, (int) my, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)
-                || inside((int) mx, (int) my, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
+        return overPrevArrow((int) mx, (int) my) || overNextArrow((int) mx, (int) my);
     }
 
     @Override
@@ -329,35 +351,39 @@ public class ChestPanelWidget extends AbstractWidget {
         g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, 12, 17, 12, 17);
     }
 
-    private void drawTinyTriangle(GuiGraphicsExtractor g, int x, int y, boolean right, int color) {
-        for (int i = 0; i < 4; i++) {
-            int cx = right ? x + i : x + 3 - i;
-            g.fill(cx, y + i, cx + 1, y + 7 - i, color);
+    private void drawArrowButton(GuiGraphicsExtractor g, int x, int y, boolean right, boolean enabled) {
+        int gray = 0xFF8B8B8B;
+        int dark = 0xFF555555;
+        if (enabled) {
+            g.fill(x, y, x + 9, y + 10, 0xFFC6C6C6);
+            g.fill(x, y, x + 8, y + 1, 0xFFFFFFFF);
+            g.fill(x + 8, y, x + 9, y + 1, gray);
+            g.fill(x, y, x + 1, y + 9, 0xFFFFFFFF);
+            g.fill(x, y + 9, x + 1, y + 10, gray);
+            g.fill(x + 1, y + 9, x + 9, y + 10, dark);
+            g.fill(x + 8, y + 1, x + 9, y + 10, dark);
+        } else {
+            g.fill(x, y, x + 9, y + 10, gray);
+        }
+        int color = enabled ? 0xFFFFFFFF : dark;
+        for (int i = 0; i < 3; i++) {
+            int h = 6 - 2 * i;
+            int col = right ? 3 + i : 5 - i;
+            g.fill(x + col, y + 5 - h / 2, x + col + 1, y + 5 + h / 2, color);
         }
     }
 
-    /** Le due frecce delle tab come nel creativo: un blocco unico incassato. */
-    private void drawTabArrows(GuiGraphicsExtractor g, boolean prevOn, boolean nextOn,
-                               boolean hoverPrev, boolean hoverNext) {
-        int x = arrowPrevX();
-        int y = arrowY();
-        int w = arrowNextX() + TAB_ARROW_W - x;
-        int h = TAB_ARROW_H;
-
-        g.fill(x, y, x + w, y + h, 0xFF8B8B8B);
-        g.fill(x, y, x + w, y + 1, 0xFF373737);
-        g.fill(x, y, x + 1, y + h, 0xFF373737);
-        g.fill(x, y + h - 1, x + w, y + h, 0xFFFFFFFF);
-        g.fill(x + w - 1, y, x + w, y + h, 0xFFFFFFFF);
-        g.fill(arrowNextX() - 1, y + 1, arrowNextX(), y + h - 1, 0xFF555555);
-
-        int on = 0xFF373737;
-        int hover = 0xFF000000;
-        int off = 0xFFA0A0A0;
-        drawTinyTriangle(g, arrowPrevX() + 3, y + 2, false,
-                !prevOn ? off : hoverPrev ? hover : on);
-        drawTinyTriangle(g, arrowNextX() + 4, y + 2, true,
-                !nextOn ? off : hoverNext ? hover : on);
+    /** Le due frecce delle tab come nel creativo: cornice incassata con due bottoncini. */
+    private void drawTabArrows(GuiGraphicsExtractor g) {
+        int x = arrowsX();
+        int y = arrowsY();
+        g.fill(x, y, x + ARROWS_W, y + ARROWS_H, 0xFF8B8B8B);
+        g.fill(x, y, x + 19, y + 1, 0xFF373737);
+        g.fill(x, y, x + 1, y + 11, 0xFF373737);
+        g.fill(x + 1, y + 11, x + 20, y + 12, 0xFFFFFFFF);
+        g.fill(x + 19, y + 1, x + 20, y + 12, 0xFFFFFFFF);
+        drawArrowButton(g, x + 1, y + 1, false, canTabPrev());
+        drawArrowButton(g, x + 10, y + 1, true, canTabNext());
     }
 
     private void drawTab(GuiGraphicsExtractor g, Placed p, TabInfo info, boolean selected) {
@@ -412,12 +438,7 @@ public class ChestPanelWidget extends AbstractWidget {
             if (p.index() == selectedTab) drawTab(graphics, p, list.get(p.index()), true);
         }
 
-        // frecce per scorrere le tab (riga del titolo, in alto a destra)
-        if (needTabArrows()) {
-            boolean hp = inside(mouseX, mouseY, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
-            boolean hn = inside(mouseX, mouseY, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H);
-            drawTabArrows(graphics, tabPage > 0, tabPage < tabPageCount() - 1, hp, hn);
-        }
+        if (needTabArrows()) drawTabArrows(graphics);
 
         // campo di ricerca: nero con bordo chiaro
         int sx = x0 + 7;
@@ -467,8 +488,8 @@ public class ChestPanelWidget extends AbstractWidget {
         int pages = pageCount();
         boolean hp = inside(mouseX, mouseY, prevX(), footerY(), ARROW_W, ARROW_H);
         boolean hn = inside(mouseX, mouseY, nextX(), footerY(), ARROW_W, ARROW_H);
-        drawPageArrow(graphics, prevX() + 2, footerY() - 1, false, page > 0, hp);
-        drawPageArrow(graphics, nextX() + 2, footerY() - 1, true, page < pages - 1, hn);
+        drawPageArrow(graphics, prevX() + 2, footerY() - 3, false, page > 0, hp);
+        drawPageArrow(graphics, nextX() + 2, footerY() - 3, true, page < pages - 1, hn);
         String label = (page + 1) + "/" + pages;
         graphics.text(font, label, x0 + width / 2 - font.width(label) / 2, footerY() + 3, 0xFFFFFFFF, false);
 
@@ -479,6 +500,10 @@ public class ChestPanelWidget extends AbstractWidget {
             lines.add(Component.literal("Total: " + String.format(Locale.ROOT, "%,d", hoveredCount))
                     .withStyle(ChatFormatting.GRAY));
             graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY + 20);
+        } else if (overTabArrow(mouseX, mouseY)) {
+            graphics.setTooltipForNextFrame(font,
+                    Component.literal("Page " + (tabPage + 1) + "/" + tabPageCount()),
+                    mouseX, mouseY + 20);
         } else {
             for (Placed p : placed) {
                 if (inside(mouseX, mouseY, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_HIT_H)) {
@@ -515,15 +540,13 @@ public class ChestPanelWidget extends AbstractWidget {
         }
 
         // frecce delle tab (riga del titolo)
-        if (needTabArrows()) {
-            if (inside(mx, my, arrowPrevX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)) {
-                if (tabPage > 0) tabPage--;
-                return true;
-            }
-            if (inside(mx, my, arrowNextX(), arrowY(), TAB_ARROW_W, TAB_ARROW_H)) {
-                if (tabPage < tabPageCount() - 1) tabPage++;
-                return true;
-            }
+        if (overPrevArrow(mx, my)) {
+            tabPrev();
+            return true;
+        }
+        if (overNextArrow(mx, my)) {
+            tabNext();
+            return true;
         }
 
         // titolo e barra di ricerca: li gestisce la barra

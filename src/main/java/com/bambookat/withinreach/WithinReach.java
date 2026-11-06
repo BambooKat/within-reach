@@ -9,7 +9,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.world.level.storage.LevelResource;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,10 +29,13 @@ public class WithinReach implements ModInitializer {
 		WithinReachConfig.load();
 		RADIUS = WithinReachConfig.radius();
 
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			ContainerScanner.forget(handler.getPlayer().getUUID());
-			LAST_REQUEST.remove(handler.getPlayer().getUUID());
-		});
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				LAST_REQUEST.remove(handler.getPlayer().getUUID()));
+
+		ServerLifecycleEvents.SERVER_STARTED.register(server ->
+				ContainerScanner.load(server.getWorldPath(LevelResource.ROOT).resolve("withinreach_origins.json")));
+		ServerLifecycleEvents.SERVER_STOPPING.register(server ->
+				ContainerScanner.save(server.getWorldPath(LevelResource.ROOT).resolve("withinreach_origins.json")));
 
 		PayloadTypeRegistry.clientboundPlay().register(
 				InventoryListPayload.TYPE, InventoryListPayload.CODEC);
