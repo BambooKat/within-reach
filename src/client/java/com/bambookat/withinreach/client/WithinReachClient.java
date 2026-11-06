@@ -20,15 +20,8 @@ import net.minecraft.network.chat.Component;
 public class WithinReachClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		ClientPlayNetworking.registerGlobalReceiver(InventoryListPayload.TYPE, (payload, context) -> {
-			ChestPanelWidget.setEntries(payload.entries());
-			var current = context.client().gui.screen();
-			if (current instanceof WithinReachScreen screen) {
-				screen.setEntries(payload.entries());
-			} else if (current == null) {
-				context.client().gui.setScreen(new WithinReachScreen(payload.entries(), null));
-			}
-		});
+		ClientPlayNetworking.registerGlobalReceiver(InventoryListPayload.TYPE, (payload, context) ->
+				ChestPanelWidget.setEntries(payload.entries()));
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
 			if (!(screen instanceof AbstractContainerScreen<?>)) return;

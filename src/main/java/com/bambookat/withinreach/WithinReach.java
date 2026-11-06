@@ -1,7 +1,6 @@
 package com.bambookat.withinreach;
 
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
@@ -18,10 +17,6 @@ public class WithinReach implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		LOGGER.info("Hello Fabric world!");
-
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-				ScanCommand.register(dispatcher));
 
 		PayloadTypeRegistry.clientboundPlay().register(
 				InventoryListPayload.TYPE, InventoryListPayload.CODEC);

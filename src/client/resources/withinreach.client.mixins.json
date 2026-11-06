@@ -3,7 +3,6 @@
 	"package": "com.bambookat.withinreach.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin",
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor",
 		"AbstractRecipeBookScreenMixin",
