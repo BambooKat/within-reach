@@ -90,6 +90,15 @@ public class ChestPanelWidget extends AbstractWidget {
         rebuildView();
     }
 
+    public static void resetOnDisconnect() {
+        tabs = null;
+        entries = List.of();
+        view = List.of();
+        selectedTab = 0;
+        tabPage = 0;
+        page = 0;
+    }
+
     /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
     public static int shiftFor(int fullWidth) {
         int cols = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, (fullWidth - 380) / SLOT));

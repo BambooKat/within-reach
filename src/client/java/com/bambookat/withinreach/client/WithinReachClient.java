@@ -4,6 +4,7 @@ import com.bambookat.withinreach.InventoryListPayload;
 import com.bambookat.withinreach.RequestListPayload;
 import com.bambookat.withinreach.client.mixin.AbstractContainerScreenAccessor;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
@@ -20,6 +21,10 @@ import net.minecraft.network.chat.Component;
 public class WithinReachClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+				ChestPanelWidget.resetOnDisconnect());
+
 		ClientPlayNetworking.registerGlobalReceiver(InventoryListPayload.TYPE, (payload, context) ->
 				ChestPanelWidget.setEntries(payload.entries()));
 
