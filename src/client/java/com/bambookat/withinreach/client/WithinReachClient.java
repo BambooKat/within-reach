@@ -31,6 +31,7 @@ public class WithinReachClient implements ClientModInitializer {
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
 			if (!(screen instanceof AbstractContainerScreen<?>)) return;
 			if (screen instanceof CreativeModeInventoryScreen) return;
+			if (!ClientPlayNetworking.canSend(RequestListPayload.TYPE)) return;
 
 			boolean recipeScreen;
 			int bx, by;

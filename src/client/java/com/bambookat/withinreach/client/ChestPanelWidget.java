@@ -97,6 +97,7 @@ public class ChestPanelWidget extends AbstractWidget {
         selectedTab = 0;
         tabPage = 0;
         page = 0;
+        open = false;
     }
 
     /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
