@@ -127,6 +127,12 @@ public class ChestPanelWidget extends AbstractWidget {
         return tabs;
     }
 
+    private static String formatCount(int n) {
+        if (n < 1000) return String.valueOf(n);
+        if (n < 1_000_000) return (n / 1000) + "k";
+        return (n / 1_000_000) + "M";
+    }
+
     private static void rebuildView() {
         List<TabInfo> list = tabList();
         if (selectedTab >= list.size()) selectedTab = 0;
@@ -436,8 +442,13 @@ public class ChestPanelWidget extends AbstractWidget {
             graphics.item(stack, x + 1, y + 1);
 
             if (e.count() > 1) {
-                String text = String.valueOf(e.count());
-                graphics.text(font, text, x + SLOT - 1 - font.width(text), y + 9, 0xFFFFFFFF, true);
+                String text = formatCount(e.count());
+                float scale = 0.7f;
+                graphics.pose().pushMatrix();
+                graphics.pose().translate(x + SLOT - 1, y + SLOT - 1 - 8 * scale);
+                graphics.pose().scale(scale, scale);
+                graphics.text(font, text, -font.width(text), 0, 0xFFFFFFFF, true);
+                graphics.pose().popMatrix();
             }
 
             if (inside(mouseX, mouseY, x, y, SLOT, SLOT)) {
