@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public class WithinReach implements ModInitializer {
 	public static final String MOD_ID = "withinreach";
-	public static final int RADIUS = 16;
+	public static int RADIUS = WithinReachConfig.DEFAULT_RADIUS;
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -24,6 +24,10 @@ public class WithinReach implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+
+		WithinReachConfig.load();
+		RADIUS = WithinReachConfig.radius();
+
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			ContainerScanner.forget(handler.getPlayer().getUUID());
 			LAST_REQUEST.remove(handler.getPlayer().getUUID());
