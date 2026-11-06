@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -21,6 +22,16 @@ import net.minecraft.network.chat.Component;
 public class WithinReachClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			if (client.player == null || !ChestPanelWidget.open) return;
+			var screen = client.gui.screen();
+			if (!(screen instanceof AbstractContainerScreen<?>) || screen instanceof CreativeModeInventoryScreen) return;
+			if (!ClientPlayNetworking.canSend(RequestListPayload.TYPE)) return;
+			if (client.player.tickCount % 10 == 0) {
+				ClientPlayNetworking.send(new RequestListPayload());
+			}
+		});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
 				ChestPanelWidget.resetOnDisconnect());

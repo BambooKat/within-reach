@@ -46,8 +46,14 @@ public class ChestPanelWidget extends AbstractWidget {
 
     private record Placed(int index, int row, int col) {}
 
-    private static final TabInfo ALL_TAB =
-            new TabInfo(new ItemStack(Items.COMPASS), Component.literal("All"), null);
+    private static TabInfo allTab;
+
+    private static TabInfo allTab() {
+        if (allTab == null) {
+            allTab = new TabInfo(new ItemStack(Items.COMPASS), Component.literal("All"), null);
+        }
+        return allTab;
+    }
 
     private static final Map<String, Identifier> SPRITES = new HashMap<>();
 
@@ -112,11 +118,11 @@ public class ChestPanelWidget extends AbstractWidget {
     private static List<TabInfo> tabList() {
         if (tabs == null) {
             var level = Minecraft.getInstance().level;
-            if (level == null) return List.of(ALL_TAB);
+            if (level == null) return List.of(allTab());
             CreativeModeTabs.tryRebuildTabContents(level.enabledFeatures(), false, level.registryAccess());
             CreativeModeTabsAccessor.setCachedParameters(null);
             List<TabInfo> list = new ArrayList<>();
-            list.add(ALL_TAB);
+            list.add(allTab());
             for (CreativeModeTab t : CreativeModeTabs.allTabs()) {
                 if (t.getType() != CreativeModeTab.Type.CATEGORY) continue;
                 if (!t.shouldDisplay()) continue;
