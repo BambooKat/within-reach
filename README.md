@@ -1,9 +1,3 @@
 # Within Reach
 
-## Setup
-
-For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
-
-## License
-
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+Fabric mod for Minecraft 26.2: browse and grab items from nearby chests and barrels, right from your inventory.
