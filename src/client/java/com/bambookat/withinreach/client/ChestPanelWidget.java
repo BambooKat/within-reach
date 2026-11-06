@@ -5,6 +5,7 @@ import com.bambookat.withinreach.InventoryListPayload;
 import com.bambookat.withinreach.TakeItemPayload;
 import com.bambookat.withinreach.client.mixin.CreativeModeTabsAccessor;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -13,10 +14,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -434,6 +432,7 @@ public class ChestPanelWidget extends AbstractWidget {
         }
 
         ItemStack hovered = ItemStack.EMPTY;
+        int hoveredCount = 0;
         int start = page * perPage();
         int end = Math.min(view.size(), start + perPage());
 
@@ -460,6 +459,7 @@ public class ChestPanelWidget extends AbstractWidget {
             if (inside(mouseX, mouseY, x, y, SLOT, SLOT)) {
                 graphics.fill(x + 1, y + 1, x + SLOT - 1, y + SLOT - 1, 0x80FFFFFF);
                 hovered = stack;
+                hoveredCount = e.count();
             }
         }
 
@@ -473,7 +473,12 @@ public class ChestPanelWidget extends AbstractWidget {
         graphics.text(font, label, x0 + width / 2 - font.width(label) / 2, footerY() + 3, 0xFFFFFFFF, false);
 
         if (!hovered.isEmpty()) {
-            graphics.setTooltipForNextFrame(font, hovered, mouseX, mouseY + 20);
+            var mc = Minecraft.getInstance();
+            List<Component> lines = new ArrayList<>(hovered.getTooltipLines(
+                    Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.Default.NORMAL));
+            lines.add(Component.literal("Total: " + String.format(Locale.ROOT, "%,d", hoveredCount))
+                    .withStyle(ChatFormatting.GRAY));
+            graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY + 20);
         } else {
             for (Placed p : placed) {
                 if (inside(mouseX, mouseY, tabX(p.col()), tabHitY(p.row()), TAB_W, TAB_HIT_H)) {
