@@ -20,6 +20,23 @@ public class WithinReachConfig {
         return radius;
     }
 
+    public static void setRadius(int value) {
+        radius = Math.max(1, Math.min(MAX_RADIUS, value));
+        save();
+        WithinReach.RADIUS = radius; // in singleplayer vale subito
+    }
+
+    private static void save() {
+        Path file = FabricLoader.getInstance().getConfigDir().resolve("withinreach.json");
+        try {
+            JsonObject out = new JsonObject();
+            out.addProperty("radius", radius);
+            Files.writeString(file, GSON.toJson(out));
+        } catch (IOException e) {
+            WithinReach.LOGGER.warn("Could not write withinreach.json", e);
+        }
+    }
+
     public static void load() {
         Path file = FabricLoader.getInstance().getConfigDir().resolve("withinreach.json");
         try {

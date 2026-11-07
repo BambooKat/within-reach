@@ -16,6 +16,9 @@
 		],
 		"client": [
 			"com.bambookat.withinreach.client.WithinReachClient"
+		],
+		"modmenu": [
+			"com.bambookat.withinreach.client.WithinReachModMenu"
 		]
 	},
 	"mixins": [

@@ -1,4 +1,7 @@
 {
   "key.withinreach.toggle": "Toggle Within Reach panel",
-  "key.category.withinreach.main": "Within Reach"
+  "key.category.withinreach.main": "Within Reach",
+  "withinreach.config.title": "Within Reach",
+  "withinreach.config.radius": "Radius: %s blocks",
+  "withinreach.config.hint": "On a server, the server's setting applies."
 }

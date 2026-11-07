@@ -1,4 +1,7 @@
 {
   "key.withinreach.toggle": "Apri/chiudi pannello Within Reach",
-  "key.category.withinreach.main": "Within Reach"
+  "key.category.withinreach.main": "Within Reach",
+  "withinreach.config.title": "Within Reach",
+  "withinreach.config.radius": "Raggio: %s blocchi",
+  "withinreach.config.hint": "Su un server vale l'impostazione del server."
 }

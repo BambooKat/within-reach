@@ -133,7 +133,7 @@ public class WithinReachClient implements ClientModInitializer {
 					searchBox.keyPressed(event);
 					return false;
 				}
-				// scorciatoia da tastiera (non mentre scrivi in una casella di testo, es. incudine o ricerca del creativo)
+				// Scorciatoia da tastiera (non mentre scrivi in una casella di testo, es. incudine o ricerca del creativo)
 				if (panelAllowed(s) && TOGGLE_KEY.matches(event)
 						&& !(s.getFocused() instanceof EditBox box && box.canConsumeInput())) {
 					toggle.run();
