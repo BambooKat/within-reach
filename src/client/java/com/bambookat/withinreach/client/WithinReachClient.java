@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 
 public class WithinReachClient implements ClientModInitializer {
 	@Override
@@ -120,6 +121,10 @@ public class WithinReachClient implements ClientModInitializer {
 				}
 				return true;
 			});
+
+			// il rilascio del mouse sopra il pannello non deve arrivare alla schermata vanilla (butterebbe l'oggetto in mano)
+			ScreenMouseEvents.allowMouseRelease(screen).register((s, event) ->
+					!(panel.visible && panel.isMouseOver(event.x(), event.y())));
 
 			ScreenEvents.beforeExtract(screen).register((s, graphics, mouseX, mouseY, delta) -> {
 				reposition.run();

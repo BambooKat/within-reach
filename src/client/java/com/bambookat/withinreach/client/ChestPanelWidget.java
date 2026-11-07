@@ -579,21 +579,31 @@ public class ChestPanelWidget extends AbstractWidget {
         }
 
         var player = Minecraft.getInstance().player;
-        if (player != null && !player.containerMenu.getCarried().isEmpty()) {
-            ClientPlayNetworking.send(new DepositPayload(event.button() == 0));
-            return true;
-        }
+        net.minecraft.world.item.ItemStack carried = player != null
+                ? player.containerMenu.getCarried() : net.minecraft.world.item.ItemStack.EMPTY;
 
         int relX = mx - (getX() + 7);
         int relY = my - (by + GRID_TOP);
+        int index = -1;
         if (relX >= 0 && relY >= 0) {
             int col = relX / SLOT;
             int row = relY / SLOT;
-            int index = page * perPage() + row * columns + col;
-            if (col < columns && row < ROWS && index < view.size()) {
-                boolean wholeStack = event.button() == 0;
-                ClientPlayNetworking.send(new TakeItemPayload(view.get(index).item(), wholeStack));
+            int i = page * perPage() + row * columns + col;
+            if (col < columns && row < ROWS && i < view.size()) index = i;
+        }
+
+        if (!carried.isEmpty()) {
+            boolean sameItem = index >= 0 && carried.is(view.get(index).item())
+                    && carried.getCount() < carried.getMaxStackSize();
+            if (!sameItem) {
+                ClientPlayNetworking.send(new DepositPayload(event.button() == 0));
+                return true;
             }
+        }
+
+        if (index >= 0) {
+            boolean wholeStack = event.button() == 0;
+            ClientPlayNetworking.send(new TakeItemPayload(view.get(index).item(), wholeStack, !event.hasShiftDown()));
         }
         return true;
     }

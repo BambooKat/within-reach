@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "#c:barrels", "required": false },
+    { "id": "#c:chests/wooden", "required": false }
+  ]
+}

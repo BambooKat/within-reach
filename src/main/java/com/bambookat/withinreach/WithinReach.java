@@ -50,7 +50,8 @@ public class WithinReach implements ModInitializer {
 			ServerPlayer player = context.player();
 			if (!allowed(player)) return;
 			int amount = payload.wholeStack() ? new ItemStack(payload.item()).getMaxStackSize() : 1;
-			ContainerScanner.take(player, payload.item(), amount, RADIUS);
+			ContainerScanner.take(player, payload.item(), amount, RADIUS, payload.toHand());
+			player.containerMenu.broadcastChanges();
 			sendList(player);
 		});
 

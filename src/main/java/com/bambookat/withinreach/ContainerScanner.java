@@ -15,7 +15,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.WorldlyContainer;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import java.util.Collections;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +39,33 @@ public class ContainerScanner {
     // Per ogni giocatore e tipo di item: da quali chest l'ha preso (vale fino al riavvio)
     private static final Map<UUID, Map<Item, Set<BlockPos>>> ORIGINS = new HashMap<>();
 
+    private static final TagKey<Block> STORAGE = TagKey.create(Registries.BLOCK, WithinReach.id("storage"));
+    private static final TagKey<Block> MACHINES = TagKey.create(Registries.BLOCK, WithinReach.id("machines"));
+
+    private static boolean isStorage(BlockEntity be) {
+        if (be instanceof TrappedChestBlockEntity) return false;
+        return be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity
+                || be instanceof ShulkerBoxBlockEntity || be.getBlockState().is(STORAGE);
+    }
+
+    private static boolean isMachine(BlockEntity be) {
+        return be.getBlockState().is(MACHINES);
+    }
+
+    private static boolean isMachineContainer(Container c) {
+        return c instanceof BlockEntity be && isMachine(be);
+    }
+
+    // per le macchine: solo gli slot che un imbuto sotto potrebbe estrarre
+    private static boolean readable(Container c, int slot) {
+        if (!isMachineContainer(c)) return true;
+        if (!(c instanceof WorldlyContainer w)) return false;
+        for (int s : w.getSlotsForFace(Direction.DOWN)) {
+            if (s == slot) return w.canTakeItemThroughFace(slot, c.getItem(slot), Direction.DOWN);
+        }
+        return false;
+    }
+
     public static List<Container> find(ServerPlayer player, int radius) {
         ServerLevel level = (ServerLevel) player.level();
         BlockPos center = player.blockPosition();
@@ -46,8 +79,8 @@ public class ContainerScanner {
                 LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
                 if (chunk == null) continue;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
-                    if (be instanceof TrappedChestBlockEntity) continue;
-                    if (!(be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity)) continue;
+                    if (!(be instanceof Container)) continue;
+                    if (!isStorage(be) && !isMachine(be)) continue;
                     BlockPos p = be.getBlockPos();
                     if (Math.abs(p.getX() - center.getX()) > radius
                             || Math.abs(p.getY() - center.getY()) > radius
@@ -66,7 +99,7 @@ public class ContainerScanner {
         for (Container c : containers) {
             for (int i = 0; i < c.getContainerSize(); i++) {
                 ItemStack s = c.getItem(i);
-                if (!s.isEmpty()) totals.merge(s.getItem(), s.getCount(), Integer::sum);
+                if (!s.isEmpty() && readable(c, i)) totals.merge(s.getItem(), s.getCount(), Integer::sum);
             }
         }
         List<InventoryListPayload.Entry> entries = new ArrayList<>();
@@ -74,31 +107,50 @@ public class ContainerScanner {
         return entries;
     }
 
-    public static void take(ServerPlayer player, Item item, int amount, int radius) {
+    public static void take(ServerPlayer player, Item item, int amount, int radius, boolean toHand) {
         int remaining = amount;
         for (Container c : find(player, radius)) {
             boolean tookFromHere = false;
             for (int i = 0; i < c.getContainerSize() && remaining > 0; i++) {
                 ItemStack s = c.getItem(i);
-                if (s.isEmpty() || !s.is(item)) continue;
+                if (s.isEmpty() || !s.is(item) || !readable(c, i)) continue;
                 ItemStack taken = c.removeItem(i, Math.min(remaining, s.getCount()));
                 remaining -= taken.getCount();
                 c.setChanged();
                 tookFromHere = true;
-                if (!player.getInventory().add(taken)) {
-                    player.drop(taken, false);
-                }
+                give(player, taken, toHand);
             }
-            if (tookFromHere) remember(player, item, c);
+            if (tookFromHere && !isMachineContainer(c)) remember(player, item, c);
             if (remaining <= 0) break;
+        }
+    }
+
+    private static void give(ServerPlayer player, ItemStack taken, boolean toHand) {
+        if (toHand) {
+            ItemStack carried = player.containerMenu.getCarried();
+            if (carried.isEmpty()) {
+                player.containerMenu.setCarried(taken);
+                return;
+            }
+            if (ItemStack.isSameItemSameComponents(carried, taken)) {
+                int n = Math.min(taken.getCount(), carried.getMaxStackSize() - carried.getCount());
+                carried.grow(n);
+                taken.shrink(n);
+            }
+            if (taken.isEmpty()) return;
+        }
+        if (!player.getInventory().add(taken)) {
+            player.drop(taken, false);
         }
     }
 
     private static void remember(ServerPlayer player, Item item, Container c) {
         if (!(c instanceof BlockEntity be)) return;
-        ORIGINS.computeIfAbsent(player.getUUID(), k -> new HashMap<>())
-                .computeIfAbsent(item, k -> new LinkedHashSet<>())
-                .add(be.getBlockPos().immutable());
+        Set<BlockPos> set = ORIGINS.computeIfAbsent(player.getUUID(), k -> new HashMap<>())
+                .computeIfAbsent(item, k -> new LinkedHashSet<>());
+        BlockPos pos = be.getBlockPos().immutable();
+        set.remove(pos);
+        set.add(pos); // l'ultimo usato sta in fondo
     }
 
     public static void forget(UUID playerId) {
@@ -150,17 +202,23 @@ public class ContainerScanner {
     public static ItemStack deposit(ServerPlayer player, ItemStack stack, int radius) {
         ItemStack remaining = stack.copy();
         List<Container> all = find(player, radius);
+        all.removeIf(ContainerScanner::isMachineContainer);
 
         // 1) le chest da cui l'hai preso
         Set<BlockPos> origins = ORIGINS.getOrDefault(player.getUUID(), Map.of())
                 .getOrDefault(stack.getItem(), Set.of());
+        List<BlockPos> order = new ArrayList<>(origins);
+        Collections.reverse(order); // dal più recente
         List<Container> originContainers = new ArrayList<>();
-        for (Container c : all) {
-            if (c instanceof BlockEntity be && origins.contains(be.getBlockPos())) {
-                originContainers.add(c);
+        for (BlockPos pos : order) {
+            for (Container c : all) {
+                if (c instanceof BlockEntity be && be.getBlockPos().equals(pos)) originContainers.add(c);
             }
         }
-        insertInto(originContainers, remaining);
+        for (Container c : originContainers) {
+            if (remaining.isEmpty()) break;
+            insertInto(List.of(c), remaining);
+        }
 
         // 2) ripiego: prima chest che hanno già l'item, poi tutte le altre
         if (!remaining.isEmpty()) {
@@ -178,12 +236,18 @@ public class ContainerScanner {
         return remaining;
     }
 
+    private static boolean canPlace(Container c, int slot, ItemStack stack) {
+        if (c instanceof ShulkerBoxBlockEntity && Block.byItem(stack.getItem()) instanceof ShulkerBoxBlock) return false;
+        if (c instanceof WorldlyContainer w) return w.canPlaceItemThroughFace(slot, stack, Direction.UP);
+        return c.canPlaceItem(slot, stack);
+    }
+
     private static void insertInto(List<Container> containers, ItemStack remaining) {
         // completa gli stack già presenti
         for (Container c : containers) {
             for (int i = 0; i < c.getContainerSize() && !remaining.isEmpty(); i++) {
                 ItemStack s = c.getItem(i);
-                if (!s.isEmpty() && ItemStack.isSameItemSameComponents(s, remaining)) {
+                if (!s.isEmpty() && ItemStack.isSameItemSameComponents(s, remaining) && canPlace(c, i, remaining)) {
                     int space = Math.min(c.getMaxStackSize(), s.getMaxStackSize()) - s.getCount();
                     int n = Math.min(space, remaining.getCount());
                     if (n > 0) {
@@ -197,7 +261,7 @@ public class ContainerScanner {
         // poi gli slot vuoti
         for (Container c : containers) {
             for (int i = 0; i < c.getContainerSize() && !remaining.isEmpty(); i++) {
-                if (c.getItem(i).isEmpty()) {
+                if (c.getItem(i).isEmpty() && canPlace(c, i, remaining)) {
                     int n = Math.min(remaining.getCount(), remaining.getMaxStackSize());
                     c.setItem(i, remaining.split(n));
                     c.setChanged();

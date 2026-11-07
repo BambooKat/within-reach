@@ -7,7 +7,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.item.Item;
 
-public record TakeItemPayload(Item item, boolean wholeStack) implements CustomPacketPayload {
+public record TakeItemPayload(Item item, boolean wholeStack, boolean toHand) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<TakeItemPayload> TYPE =
             new CustomPacketPayload.Type<>(WithinReach.id("take_item"));
@@ -16,6 +16,7 @@ public record TakeItemPayload(Item item, boolean wholeStack) implements CustomPa
             StreamCodec.composite(
                     ByteBufCodecs.registry(Registries.ITEM), TakeItemPayload::item,
                     ByteBufCodecs.BOOL, TakeItemPayload::wholeStack,
+                    ByteBufCodecs.BOOL, TakeItemPayload::toHand,
                     TakeItemPayload::new);
 
     @Override
