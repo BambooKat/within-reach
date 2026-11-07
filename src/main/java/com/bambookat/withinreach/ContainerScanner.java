@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.world.inventory.PlayerEnderChestContainer;
 
 public class ContainerScanner {
 
@@ -41,6 +42,7 @@ public class ContainerScanner {
 
     private static final TagKey<Block> STORAGE = TagKey.create(Registries.BLOCK, WithinReach.id("storage"));
     private static final TagKey<Block> MACHINES = TagKey.create(Registries.BLOCK, WithinReach.id("machines"));
+    private static final BlockPos ENDER_KEY = new BlockPos(0, -2048, 0);
 
     private static boolean isStorage(BlockEntity be) {
         if (be instanceof TrappedChestBlockEntity) return false;
@@ -70,6 +72,7 @@ public class ContainerScanner {
         ServerLevel level = (ServerLevel) player.level();
         BlockPos center = player.blockPosition();
         List<Container> result = new ArrayList<>();
+        boolean enderNear = false;
         int range = (radius >> 4) + 1;
         int cx0 = center.getX() >> 4;
         int cz0 = center.getZ() >> 4;
@@ -79,6 +82,15 @@ public class ContainerScanner {
                 LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
                 if (chunk == null) continue;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
+                    if (be instanceof EnderChestBlockEntity) {
+                        BlockPos ep = be.getBlockPos();
+                        if (Math.abs(ep.getX() - center.getX()) <= radius
+                                && Math.abs(ep.getY() - center.getY()) <= radius
+                                && Math.abs(ep.getZ() - center.getZ()) <= radius) {
+                            enderNear = true;
+                        }
+                        continue;
+                    }
                     if (!(be instanceof Container)) continue;
                     if (!isStorage(be) && !isMachine(be)) continue;
                     BlockPos p = be.getBlockPos();
@@ -91,6 +103,8 @@ public class ContainerScanner {
                 }
             }
         }
+        if (enderNear) result.add(player.getEnderChestInventory());
+
         return result;
     }
 
@@ -145,10 +159,12 @@ public class ContainerScanner {
     }
 
     private static void remember(ServerPlayer player, Item item, Container c) {
-        if (!(c instanceof BlockEntity be)) return;
+        BlockPos pos;
+        if (c instanceof PlayerEnderChestContainer) pos = ENDER_KEY;
+        else if (c instanceof BlockEntity be) pos = be.getBlockPos().immutable();
+        else return;
         Set<BlockPos> set = ORIGINS.computeIfAbsent(player.getUUID(), k -> new HashMap<>())
                 .computeIfAbsent(item, k -> new LinkedHashSet<>());
-        BlockPos pos = be.getBlockPos().immutable();
         set.remove(pos);
         set.add(pos); // l'ultimo usato sta in fondo
     }
@@ -212,7 +228,10 @@ public class ContainerScanner {
         List<Container> originContainers = new ArrayList<>();
         for (BlockPos pos : order) {
             for (Container c : all) {
-                if (c instanceof BlockEntity be && be.getBlockPos().equals(pos)) originContainers.add(c);
+                if ((c instanceof BlockEntity be && be.getBlockPos().equals(pos))
+                        || (pos.equals(ENDER_KEY) && c instanceof PlayerEnderChestContainer)) {
+                    originContainers.add(c);
+                }
             }
         }
         for (Container c : originContainers) {
