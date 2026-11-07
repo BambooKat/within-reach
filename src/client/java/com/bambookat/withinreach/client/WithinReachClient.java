@@ -65,11 +65,11 @@ public class WithinReachClient implements ClientModInitializer {
 			} else if (screen instanceof CraftingScreen) {
 				recipeScreen = true;
 				bx = 5;
-				by = 54;
+				by = 53;
 			} else if (screen instanceof AbstractFurnaceScreen<?>) {
 				recipeScreen = true;
 				bx = 20;
-				by = 54;
+				by = 53;
 			} else {
 				recipeScreen = false;
 				bx = -22;

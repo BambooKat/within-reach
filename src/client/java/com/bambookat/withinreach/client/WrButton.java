@@ -32,7 +32,9 @@ public class WrButton extends AbstractWidget {
         graphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0, 0, 20, 18, 20, 18);
         if (hover) graphics.fill(x + 1, y + 1, x + 19, y + 17, 0x40FFFFFF);
         if (icon == null) icon = new ItemStack(Items.CHEST);
-        graphics.item(icon, x + 2, y+1);
+        graphics.enableScissor(x, y, x + 20, y + 16); // taglia l'ultima riga di pixel della chest
+        graphics.item(icon, x + 2, y + 1);
+        graphics.disableScissor();
         if (hover) {
             graphics.setTooltipForNextFrame(Minecraft.getInstance().font,
                     Component.translatable("withinreach.title"), mouseX, mouseY);

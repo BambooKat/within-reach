@@ -3,7 +3,7 @@
   "key.category.withinreach.main": "Within Reach",
   "withinreach.config.title": "Within Reach",
   "withinreach.config.radius": "Radius: %s blocks",
-  "withinreach.config.hint": "On a server, the server's setting applies.",
+  "withinreach.config.hint": "Servers use their own radius.",
   "withinreach.title": "Within Reach",
   "withinreach.tab.all": "All",
   "withinreach.panel.no_results": "No results",

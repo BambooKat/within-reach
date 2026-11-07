@@ -3,7 +3,7 @@
   "key.category.withinreach.main": "Within Reach",
   "withinreach.config.title": "Within Reach",
   "withinreach.config.radius": "Raggio: %s blocchi",
-  "withinreach.config.hint": "Su un server vale l'impostazione del server.",
+  "withinreach.config.hint": "I server usano il proprio raggio.",
   "withinreach.title": "Within Reach",
   "withinreach.tab.all": "Tutti",
   "withinreach.panel.no_results": "Nessun risultato",

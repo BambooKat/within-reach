@@ -2,7 +2,7 @@
 
 ## Impostazioni del progetto
 
-- **Name**: Within Reach
+- **Name**: Within Reach - Remote Chest Access
 - **URL slug**: within-reach
 - **Summary** (max 256 caratteri):
   Browse and grab items from nearby chests, barrels, shulker boxes and your ender chest, right from your inventory, crafting table or furnace screen. No more trips to the storage room.
