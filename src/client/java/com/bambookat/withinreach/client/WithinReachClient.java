@@ -78,7 +78,7 @@ public class WithinReachClient implements ClientModInitializer {
 			searchBox.setBordered(false);
 			searchBox.setTextColor(0xFFFFFFFF);
 
-			Button button = Button.builder(Component.literal("WR"), b -> {
+			WrButton button = new WrButton(() -> {
 						if (recipeScreen) {
 							ChestPanelWidget.open = !ChestPanelWidget.open;
 							client.execute(() -> screen.init(scaledWidth, scaledHeight));
@@ -88,9 +88,7 @@ public class WithinReachClient implements ClientModInitializer {
 								ClientPlayNetworking.send(new RequestListPayload());
 							}
 						}
-					})
-					.bounds(0, 0, 20, 18)
-					.build();
+					});
 
 			Runnable reposition = () -> {
 				boolean allowed = panelAllowed(screen);
