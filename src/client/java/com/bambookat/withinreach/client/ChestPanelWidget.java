@@ -417,7 +417,7 @@ public class ChestPanelWidget extends AbstractWidget {
             // dietro al pannello: il suo bordo ne copre la parte che entra
             int y = top ? getY() : bodyBottom() - 4;
             g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, TAB_W, 32, TAB_W, 32);
-            g.item(info.icon(), x + 5, top ? y + 8 : y + 10);
+            g.item(info.icon(), x + 5, top ? y + 8 : y + 7);
         } else if (top) {
             // sprite intero: copre il bordo del pannello e si fonde con lui, come nel creativo
             g.blit(RenderPipelines.GUI_TEXTURED, tex, x, getY(), 0, 0, TAB_W, 32, TAB_W, 32);
@@ -425,7 +425,7 @@ public class ChestPanelWidget extends AbstractWidget {
         } else {
             int y = bodyBottom() - 4;
             g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, TAB_W, 32, TAB_W, 32);
-            g.item(info.icon(), x + 5, y + 10);
+            g.item(info.icon(), x + 5, y + 7);
         }
     }
 
