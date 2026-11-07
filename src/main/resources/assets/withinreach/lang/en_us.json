@@ -3,5 +3,14 @@
   "key.category.withinreach.main": "Within Reach",
   "withinreach.config.title": "Within Reach",
   "withinreach.config.radius": "Radius: %s blocks",
-  "withinreach.config.hint": "On a server, the server's setting applies."
+  "withinreach.config.hint": "On a server, the server's setting applies.",
+  "withinreach.title": "Within Reach",
+  "withinreach.tab.all": "All",
+  "withinreach.panel.no_results": "No results",
+  "withinreach.tooltip.total": "Total: %s",
+  "withinreach.tooltip.page": "Page %s/%s",
+  "withinreach.search": "Search",
+  "withinreach.search.hint": "Search...",
+  "modmenu.summaryTranslation.withinreach": "Browse and grab items from nearby chests, right from your inventory.",
+  "modmenu.descriptionTranslation.withinreach": "Adds a side panel next to your inventory, crafting table and furnace that lists everything stored in the chests, barrels, shulker boxes and ender chest around you. Click to grab, drop an item on the panel to put it back, and search or browse by creative-style tabs."
 }

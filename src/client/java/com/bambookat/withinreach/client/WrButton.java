@@ -20,7 +20,7 @@ public class WrButton extends AbstractWidget {
     private ItemStack icon; // creato al primo disegno: gli item non esistono ancora nel menu principale
 
     public WrButton(Runnable onPress) {
-        super(0, 0, 20, 18, Component.literal("Within Reach"));
+        super(0, 0, 20, 18, Component.translatable("withinreach.title"));
         this.onPress = onPress;
     }
 
@@ -35,7 +35,7 @@ public class WrButton extends AbstractWidget {
         graphics.item(icon, x + 2, y+1);
         if (hover) {
             graphics.setTooltipForNextFrame(Minecraft.getInstance().font,
-                    Component.literal("Within Reach"), mouseX, mouseY);
+                    Component.translatable("withinreach.title"), mouseX, mouseY);
         }
     }
 

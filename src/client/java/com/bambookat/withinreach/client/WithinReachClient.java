@@ -80,8 +80,8 @@ public class WithinReachClient implements ClientModInitializer {
 
 			ChestPanelWidget panel = new ChestPanelWidget(0, 0);
 
-			EditBox searchBox = new EditBox(client.font, 0, 0, 80, 14, Component.literal("Search"));
-			searchBox.setHint(Component.literal("Search..."));
+			EditBox searchBox = new EditBox(client.font, 0, 0, 80, 14, Component.translatable("withinreach.search"));
+			searchBox.setHint(Component.translatable("withinreach.search.hint"));
 			searchBox.setMaxLength(40);
 			searchBox.setValue(ChestPanelWidget.getFilter());
 			searchBox.setResponder(ChestPanelWidget::setFilter);

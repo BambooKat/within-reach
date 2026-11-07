@@ -50,7 +50,7 @@ public class ChestPanelWidget extends AbstractWidget {
 
     private static TabInfo allTab() {
         if (allTab == null) {
-            allTab = new TabInfo(new ItemStack(Items.COMPASS), Component.literal("All"), null);
+            allTab = new TabInfo(new ItemStack(Items.COMPASS), Component.translatable("withinreach.tab.all"), null);
         }
         return allTab;
     }
@@ -69,7 +69,7 @@ public class ChestPanelWidget extends AbstractWidget {
     public static boolean open = false;
 
     public ChestPanelWidget(int x, int y) {
-        super(x, y, columns * SLOT + 14, TABS_H + BODY_H + TABS_H, Component.literal("Within Reach"));
+        super(x, y, columns * SLOT + 14, TABS_H + BODY_H + TABS_H, Component.translatable("withinreach.title"));
         this.visible = open;
     }
 
@@ -448,7 +448,7 @@ public class ChestPanelWidget extends AbstractWidget {
 
         // pannello con interno scuro incassato, come il ricettario
         drawPanel(graphics, x0, by, width, BODY_H);
-        graphics.text(font, "Within Reach", x0 + 7, by + 5, 0xFF404040, false);
+        graphics.text(font, Component.translatable("withinreach.title").getString(), x0 + 7, by + 5, 0xFF404040, false);
         drawInset(graphics, x0 + 4, by + 15, width - 8, BODY_H - 19);
 
         // tab selezionata: sopra il pannello, si fonde con lui
@@ -467,7 +467,7 @@ public class ChestPanelWidget extends AbstractWidget {
         graphics.outline(sx, sy, sw, sh, 0xFFA0A0A0);
 
         if (view.isEmpty()) {
-            graphics.text(font, "No results", x0 + 7, by + GRID_TOP + 4, 0xFFFFFFFF, false);
+            graphics.text(font, Component.translatable("withinreach.panel.no_results").getString(), x0 + 7, by + GRID_TOP + 4, 0xFFFFFFFF, false);
         }
 
         ItemStack hovered = ItemStack.EMPTY;
@@ -518,7 +518,7 @@ public class ChestPanelWidget extends AbstractWidget {
             List<Component> lines = new ArrayList<>(hovered.getTooltipLines(
                     Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.Default.NORMAL));
             if (hoveredCount >= 1000) {
-                lines.add(Component.literal("Total: " + String.format(Locale.ROOT, "%,d", hoveredCount))
+                lines.add(Component.translatable("withinreach.tooltip.total", String.format(Locale.ROOT, "%,d", hoveredCount))
                         .withStyle(ChatFormatting.GRAY));
             }
             int shown = 0;
@@ -536,7 +536,7 @@ public class ChestPanelWidget extends AbstractWidget {
             graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY + 20);
         } else if (overTabArrow(mouseX, mouseY)) {
             graphics.setTooltipForNextFrame(font,
-                    Component.literal("Page " + (tabPage + 1) + "/" + tabPageCount()),
+                    Component.translatable("withinreach.tooltip.page", tabPage + 1, tabPageCount()),
                     mouseX, mouseY + 20);
         } else {
             for (Placed p : placed) {

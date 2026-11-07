@@ -3,5 +3,14 @@
   "key.category.withinreach.main": "Within Reach",
   "withinreach.config.title": "Within Reach",
   "withinreach.config.radius": "Raggio: %s blocchi",
-  "withinreach.config.hint": "Su un server vale l'impostazione del server."
+  "withinreach.config.hint": "Su un server vale l'impostazione del server.",
+  "withinreach.title": "Within Reach",
+  "withinreach.tab.all": "Tutti",
+  "withinreach.panel.no_results": "Nessun risultato",
+  "withinreach.tooltip.total": "Totale: %s",
+  "withinreach.tooltip.page": "Pagina %s/%s",
+  "withinreach.search": "Cerca",
+  "withinreach.search.hint": "Cerca...",
+  "modmenu.summaryTranslation.withinreach": "Sfoglia e prendi gli oggetti dalle chest vicine, direttamente dal tuo inventario.",
+  "modmenu.descriptionTranslation.withinreach": "Aggiunge un pannello laterale accanto a inventario, banco da lavoro e forno che elenca tutto ciò che c'è nelle chest, nei barili, nelle shulker box e nella ender chest intorno a te. Clicca per prendere, lascia un oggetto sul pannello per rimetterlo a posto, cerca o sfoglia con le schede come nel creativo."
 }
