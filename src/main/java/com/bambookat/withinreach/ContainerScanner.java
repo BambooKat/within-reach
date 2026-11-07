@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.world.inventory.PlayerEnderChestContainer;
+import net.minecraft.network.chat.Component;
 
 public class ContainerScanner {
 
@@ -110,15 +111,31 @@ public class ContainerScanner {
 
     public static List<InventoryListPayload.Entry> summarize(List<Container> containers) {
         Map<Item, Integer> totals = new LinkedHashMap<>();
+        Map<Item, Map<Component, Integer>> sources = new HashMap<>();
         for (Container c : containers) {
+            Component name = nameOf(c);
             for (int i = 0; i < c.getContainerSize(); i++) {
                 ItemStack s = c.getItem(i);
-                if (!s.isEmpty() && readable(c, i)) totals.merge(s.getItem(), s.getCount(), Integer::sum);
+                if (!s.isEmpty() && readable(c, i)) {
+                    totals.merge(s.getItem(), s.getCount(), Integer::sum);
+                    sources.computeIfAbsent(s.getItem(), k -> new LinkedHashMap<>())
+                            .merge(name, s.getCount(), Integer::sum);
+                }
             }
         }
         List<InventoryListPayload.Entry> entries = new ArrayList<>();
-        totals.forEach((item, count) -> entries.add(new InventoryListPayload.Entry(item, count)));
+        totals.forEach((item, count) -> {
+            List<InventoryListPayload.Source> list = new ArrayList<>();
+            sources.get(item).forEach((n, cnt) -> list.add(new InventoryListPayload.Source(n, cnt)));
+            entries.add(new InventoryListPayload.Entry(item, count, list));
+        });
         return entries;
+    }
+
+    private static Component nameOf(Container c) {
+        if (c instanceof PlayerEnderChestContainer) return Component.translatable("container.enderchest");
+        if (c instanceof BaseContainerBlockEntity named) return named.getDisplayName();
+        return Component.translatable("container.chest");
     }
 
     public static void take(ServerPlayer player, Item item, int amount, int radius, boolean toHand) {

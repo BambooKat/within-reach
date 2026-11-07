@@ -471,6 +471,7 @@ public class ChestPanelWidget extends AbstractWidget {
 
         ItemStack hovered = ItemStack.EMPTY;
         int hoveredCount = 0;
+        List<InventoryListPayload.Source> hoveredSources = List.of();
         int start = page * perPage();
         int end = Math.min(view.size(), start + perPage());
 
@@ -498,6 +499,7 @@ public class ChestPanelWidget extends AbstractWidget {
                 graphics.fill(x + 3, y + 3, x + SLOT - 2, y + SLOT - 2, 0x80FFFFFF);
                 hovered = stack;
                 hoveredCount = e.count();
+                hoveredSources = e.sources();
             }
         }
 
@@ -514,8 +516,22 @@ public class ChestPanelWidget extends AbstractWidget {
             var mc = Minecraft.getInstance();
             List<Component> lines = new ArrayList<>(hovered.getTooltipLines(
                     Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.Default.NORMAL));
-            lines.add(Component.literal("Total: " + String.format(Locale.ROOT, "%,d", hoveredCount))
-                    .withStyle(ChatFormatting.GRAY));
+            if (hoveredCount >= 1000) {
+                lines.add(Component.literal("Total: " + String.format(Locale.ROOT, "%,d", hoveredCount))
+                        .withStyle(ChatFormatting.GRAY));
+            }
+            int shown = 0;
+            for (InventoryListPayload.Source src : hoveredSources) {
+                if (shown == 8) {
+                    lines.add(Component.literal("  +" + (hoveredSources.size() - 8) + " ...")
+                            .withStyle(style -> style.withColor(0x888888)));
+                    break;
+                }
+                lines.add(Component.literal("  ").append(src.name().copy())
+                        .append(": " + String.format(Locale.ROOT, "%,d", src.count()))
+                        .withStyle(style -> style.withColor(0x888888)));
+                shown++;
+            }
             graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY + 20);
         } else if (overTabArrow(mouseX, mouseY)) {
             graphics.setTooltipForNextFrame(font,
