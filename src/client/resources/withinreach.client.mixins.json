@@ -6,6 +6,7 @@
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor",
 		"AbstractRecipeBookScreenMixin",
+		"AbstractContainerScreenShiftMixin",
 		"CreativeModeTabsAccessor",
 		"CreativeInventoryScreenAccessor"
 	],

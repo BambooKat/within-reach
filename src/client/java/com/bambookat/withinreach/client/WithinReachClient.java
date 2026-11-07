@@ -89,7 +89,9 @@ public class WithinReachClient implements ClientModInitializer {
 			searchBox.setTextColor(0xFFFFFFFF);
 
 			Runnable toggle = () -> {
-				if (recipeScreen) {
+				boolean needsRoom = ChestPanelWidget.extraShift(
+						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth()) > 0;
+				if (recipeScreen || needsRoom) {
 					ChestPanelWidget.open = !ChestPanelWidget.open;
 					client.execute(() -> screen.init(scaledWidth, scaledHeight));
 				} else {
@@ -103,7 +105,8 @@ public class WithinReachClient implements ClientModInitializer {
 			WrButton button = new WrButton(toggle);
 
 			Runnable reposition = () -> {
-				boolean allowed = panelAllowed(screen);
+				boolean allowed = panelAllowed(screen) && ChestPanelWidget.extraShift(
+						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth()) >= 0;
 				panel.visible = ChestPanelWidget.open && allowed;
 				button.visible = allowed;
 				int fullWidth = client.getWindow().getGuiScaledWidth();
@@ -134,7 +137,7 @@ public class WithinReachClient implements ClientModInitializer {
 					return false;
 				}
 				// Scorciatoia da tastiera (non mentre scrivi in una casella di testo, es. incudine o ricerca del creativo)
-				if (panelAllowed(s) && TOGGLE_KEY.matches(event)
+				if (button.visible && TOGGLE_KEY.matches(event)
 						&& !(s.getFocused() instanceof EditBox box && box.canConsumeInput())) {
 					toggle.run();
 					return false;

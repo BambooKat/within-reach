@@ -112,6 +112,23 @@ public class ChestPanelWidget extends AbstractWidget {
         ROWS = compact ? 5 : 4;
     }
 
+    /** Larghezza minima del pannello (5 colonne) nella modalità attuale. */
+    public static int minPanelWidth(int fullWidth) {
+        updateMode(fullWidth);
+        return MIN_COLUMNS * SLOT + 14;
+    }
+
+    /**
+     * Quanto spostare a sinistra una finestra larga imageWidth perché il pannello ci stia accanto.
+     * 0 = ci sta già, -1 = non ci sta nemmeno spostandola (il pannello va nascosto).
+     */
+    public static int extraShift(int fullWidth, int imageWidth) {
+        int need = minPanelWidth(fullWidth) + 8; // 4 di distanza dalla finestra + 4 dal bordo
+        if (fullWidth - imageWidth < need) return -1;
+        int free = (fullWidth - imageWidth) / 2;
+        return Math.max(0, need - free);
+    }
+
     /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
     public static int shiftFor(int fullWidth) {
         updateMode(fullWidth);
