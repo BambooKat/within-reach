@@ -19,6 +19,8 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import com.bambookat.withinreach.client.mixin.CreativeInventoryScreenAccessor;
+import net.minecraft.world.item.CreativeModeTab;
 
 public class WithinReachClient implements ClientModInitializer {
 	@Override
@@ -27,7 +29,7 @@ public class WithinReachClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.player == null || !ChestPanelWidget.open) return;
 			var screen = client.gui.screen();
-			if (!(screen instanceof AbstractContainerScreen<?>) || screen instanceof CreativeModeInventoryScreen) return;
+			if (!(screen instanceof AbstractContainerScreen<?>) || !panelAllowed(screen)) return;
 			if (!ClientPlayNetworking.canSend(RequestListPayload.TYPE)) return;
 			if (client.player.tickCount % 10 == 0) {
 				ClientPlayNetworking.send(new RequestListPayload());
@@ -42,7 +44,6 @@ public class WithinReachClient implements ClientModInitializer {
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
 			if (!(screen instanceof AbstractContainerScreen<?>)) return;
-			if (screen instanceof CreativeModeInventoryScreen) return;
 			if (!ClientPlayNetworking.canSend(RequestListPayload.TYPE)) return;
 
 			boolean recipeScreen;
@@ -92,6 +93,9 @@ public class WithinReachClient implements ClientModInitializer {
 					.build();
 
 			Runnable reposition = () -> {
+				boolean allowed = panelAllowed(screen);
+				panel.visible = ChestPanelWidget.open && allowed;
+				button.visible = allowed;
 				int fullWidth = client.getWindow().getGuiScaledWidth();
 				int left = accessor.getLeftPos();
 				int top = accessor.getTopPos();
@@ -140,5 +144,10 @@ public class WithinReachClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new RequestListPayload());
 			}
 		});
+	}
+
+	private static boolean panelAllowed(net.minecraft.client.gui.screens.Screen screen) {
+		if (!(screen instanceof CreativeModeInventoryScreen)) return true;
+		return CreativeInventoryScreenAccessor.getSelectedTab().getType() == CreativeModeTab.Type.INVENTORY;
 	}
 }

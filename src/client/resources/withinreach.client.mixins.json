@@ -6,7 +6,8 @@
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor",
 		"AbstractRecipeBookScreenMixin",
-		"CreativeModeTabsAccessor"
+		"CreativeModeTabsAccessor",
+		"CreativeInventoryScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

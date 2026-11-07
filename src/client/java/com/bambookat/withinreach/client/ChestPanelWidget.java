@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -619,7 +620,9 @@ public class ChestPanelWidget extends AbstractWidget {
 
         if (index >= 0) {
             boolean wholeStack = event.button() == 0;
-            ClientPlayNetworking.send(new TakeItemPayload(view.get(index).item(), wholeStack, !event.hasShiftDown()));
+            boolean creative = Minecraft.getInstance().gui.screen() instanceof CreativeModeInventoryScreen;
+            ClientPlayNetworking.send(new TakeItemPayload(view.get(index).item(), wholeStack,
+                    !event.hasShiftDown() && !creative));
         }
         return true;
     }
