@@ -27,10 +27,11 @@ public class ChestPanelWidget extends AbstractWidget {
     public static final int TABS_H = 28;
     public static final int BODY_H = 166;
 
-    private static final int SLOT = 18;
+    private static int SLOT = 25;
     private static final int MIN_COLUMNS = 5;
     private static final int MAX_COLUMNS = 9;
-    private static final int ROWS = 6;
+    private static int ROWS = 4;
+    private static boolean compact = false;
     private static final int GRID_TOP = 34;
     private static final int ARROW_W = 16;
     private static final int ARROW_H = 14;
@@ -104,8 +105,15 @@ public class ChestPanelWidget extends AbstractWidget {
         open = false;
     }
 
+    public static void updateMode(int fullWidth) {
+        compact = fullWidth < 505;
+        SLOT = compact ? 21 : 25;
+        ROWS = compact ? 5 : 4;
+    }
+
     /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
     public static int shiftFor(int fullWidth) {
+        updateMode(fullWidth);
         int cols = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, (fullWidth - 380) / SLOT));
         int panelW = cols * SLOT + 14;
         return Math.max(0, Math.min(panelW - 20, fullWidth - 379));
@@ -163,6 +171,8 @@ public class ChestPanelWidget extends AbstractWidget {
 
     /** Adatta la larghezza allo spazio disponibile a destra della schermata. */
     public void layout(int availableWidth) {
+        updateMode(Minecraft.getInstance().getWindow().getGuiScaledWidth());
+        clampPage();
         int cols = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, (availableWidth - 14) / SLOT));
         if (cols != columns) {
             columns = cols;
@@ -322,9 +332,18 @@ public class ChestPanelWidget extends AbstractWidget {
     }
 
     private void drawSlot(GuiGraphicsExtractor g, int x, int y) {
-        int s = SLOT;
-        g.fill(x, y, x + s, y + s, 0xFF8B8B8B);
-        g.outline(x, y, s, s, 0xFFA83232);
+
+        // cella 25x25: linea nera di 1px, poi slot 24x24 come nel ricettario
+        g.fill(x, y, x + SLOT, y + SLOT, 0xFF000000);
+        int sx = x + 1;
+        int sy = y + 1;
+        int s = SLOT - 1;
+        g.fill(sx, sy, sx + s, sy + s, 0xFFCCCCCC);
+        g.fill(sx + 1, sy + 1, sx + s - 1, sy + s - 1, 0xFF8B8B8B);
+        g.fill(sx + 1, sy + 1, sx + s - 1, sy + 2, 0xFF373737);
+        g.fill(sx + 1, sy + 1, sx + 2, sy + s - 1, 0xFF373737);
+        g.fill(sx + 1, sy + s - 2, sx + s - 1, sy + s - 1, 0xFFFFFFFF);
+        g.fill(sx + s - 2, sy + 1, sx + s - 1, sy + s - 1, 0xFFFFFFFF);
     }
 
     private void drawInset(GuiGraphicsExtractor g, int x, int y, int w, int h) {
@@ -399,15 +418,13 @@ public class ChestPanelWidget extends AbstractWidget {
             g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, TAB_W, 32, TAB_W, 32);
             g.item(info.icon(), x + 5, top ? y + 8 : y + 10);
         } else if (top) {
-            // sprite tagliato a 28 righe, e giunzione aperta sul bordo del pannello
-            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, getY(), 0, 0, TAB_W, 28, TAB_W, 32);
-            g.fill(x + 1, bodyY(), x + TAB_W - 1, bodyY() + 2, 0xFFC6C6C6);
+            // sprite intero: copre il bordo del pannello e si fonde con lui, come nel creativo
+            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, getY(), 0, 0, TAB_W, 32, TAB_W, 32);
             g.item(info.icon(), x + 5, getY() + 8);
         } else {
-            int y = bodyBottom();
-            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 4, TAB_W, 28, TAB_W, 32);
-            g.fill(x + 1, bodyBottom() - 2, x + TAB_W - 1, bodyBottom(), 0xFFC6C6C6);
-            g.item(info.icon(), x + 5, y + 6);
+            int y = bodyBottom() - 4;
+            g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, TAB_W, 32, TAB_W, 32);
+            g.item(info.icon(), x + 5, y + 10);
         }
     }
 
@@ -465,20 +482,20 @@ public class ChestPanelWidget extends AbstractWidget {
             ItemStack stack = new ItemStack(e.item());
 
             drawSlot(graphics, x, y);
-            graphics.item(stack, x + 1, y + 1);
+            graphics.item(stack, x + (compact ? 3 : 5), y + (compact ? 3 : 5));
 
             if (e.count() > 1) {
                 String text = formatCount(e.count());
                 float scale = 0.7f;
                 graphics.pose().pushMatrix();
-                graphics.pose().translate(x + SLOT - 1, y + SLOT - 1 - 8 * scale);
+                graphics.pose().translate(x + SLOT - (compact ? 2 : 3), y + SLOT - (compact ? 2 : 3) - 8 * scale);
                 graphics.pose().scale(scale, scale);
                 graphics.text(font, text, -font.width(text), 0, 0xFFFFFFFF, true);
                 graphics.pose().popMatrix();
             }
 
             if (inside(mouseX, mouseY, x, y, SLOT, SLOT)) {
-                graphics.fill(x + 1, y + 1, x + SLOT - 1, y + SLOT - 1, 0x80FFFFFF);
+                graphics.fill(x + 3, y + 3, x + SLOT - 2, y + SLOT - 2, 0x80FFFFFF);
                 hovered = stack;
                 hoveredCount = e.count();
             }
