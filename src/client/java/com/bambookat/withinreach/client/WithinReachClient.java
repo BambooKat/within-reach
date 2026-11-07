@@ -21,10 +21,20 @@ import net.minecraft.network.chat.Component;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import com.bambookat.withinreach.client.mixin.CreativeInventoryScreenAccessor;
 import net.minecraft.world.item.CreativeModeTab;
+import com.bambookat.withinreach.WithinReach;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
 
 public class WithinReachClient implements ClientModInitializer {
+	public static KeyMapping TOGGLE_KEY;
+
 	@Override
 	public void onInitializeClient() {
+
+		KeyMapping.Category category = KeyMapping.Category.register(WithinReach.id("main"));
+		TOGGLE_KEY = KeyMappingHelper.registerKeyMapping(
+				new KeyMapping("key.withinreach.toggle", InputConstants.KEY_G, category));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.player == null || !ChestPanelWidget.open) return;
@@ -78,17 +88,19 @@ public class WithinReachClient implements ClientModInitializer {
 			searchBox.setBordered(false);
 			searchBox.setTextColor(0xFFFFFFFF);
 
-			WrButton button = new WrButton(() -> {
-						if (recipeScreen) {
-							ChestPanelWidget.open = !ChestPanelWidget.open;
-							client.execute(() -> screen.init(scaledWidth, scaledHeight));
-						} else {
-							panel.toggle();
-							if (ChestPanelWidget.open) {
-								ClientPlayNetworking.send(new RequestListPayload());
-							}
-						}
-					});
+			Runnable toggle = () -> {
+				if (recipeScreen) {
+					ChestPanelWidget.open = !ChestPanelWidget.open;
+					client.execute(() -> screen.init(scaledWidth, scaledHeight));
+				} else {
+					panel.toggle();
+					if (ChestPanelWidget.open) {
+						ClientPlayNetworking.send(new RequestListPayload());
+					}
+				}
+			};
+
+			WrButton button = new WrButton(toggle);
 
 			Runnable reposition = () -> {
 				boolean allowed = panelAllowed(screen);
@@ -119,6 +131,12 @@ public class WithinReachClient implements ClientModInitializer {
 			ScreenKeyboardEvents.allowKeyPress(screen).register((s, event) -> {
 				if (searchBox.visible && searchBox.canConsumeInput() && event.key() != 256) {
 					searchBox.keyPressed(event);
+					return false;
+				}
+				// scorciatoia da tastiera (non mentre scrivi in una casella di testo, es. incudine o ricerca del creativo)
+				if (panelAllowed(s) && TOGGLE_KEY.matches(event)
+						&& !(s.getFocused() instanceof EditBox box && box.canConsumeInput())) {
+					toggle.run();
 					return false;
 				}
 				return true;
