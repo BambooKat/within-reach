@@ -1,6 +1,7 @@
 package com.bambookat.withinreach.client.mixin;
 
 import com.bambookat.withinreach.client.ChestPanelWidget;
+import com.bambookat.withinreach.client.WithinReachClient;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
@@ -28,7 +29,9 @@ public abstract class AbstractContainerScreenShiftMixin {
         ScreenAccessor screen = (ScreenAccessor) self;
         int w = screen.getScreenWidth();
         if (w == withinreach$lastReduced) return;
-        int shift = ChestPanelWidget.extraShift(w, ((AbstractContainerScreenAccessor) self).getImageWidth());
+        // conta anche i widget di altre mod attaccati a destra (es. upgrade di Traveler's Backpack)
+        int shift = ChestPanelWidget.extraShift(w, ((AbstractContainerScreenAccessor) self).getImageWidth(),
+                WithinReachClient.foreignExtra(self));
         if (shift <= 0) return;
         int reduced = w - 2 * shift;
         screen.setScreenWidth(reduced);

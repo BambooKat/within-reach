@@ -123,11 +123,22 @@ public class ChestPanelWidget extends AbstractWidget {
      * 0 = ci sta già, -1 = non ci sta nemmeno spostandola (il pannello va nascosto).
      */
     public static int extraShift(int fullWidth, int imageWidth) {
-        int need = minPanelWidth(fullWidth) + 8; // 4 di distanza dalla finestra + 4 dal bordo
-        if (fullWidth - imageWidth < need) return -1;
-        int free = (fullWidth - imageWidth) / 2;
-        return Math.max(0, need - free);
+        return extraShift(fullWidth, imageWidth, 0);
     }
+
+    /** Come sopra, ma con extraRight px occupati a destra della finestra da widget di altre mod (es. upgrade di TB). */
+    public static int extraShift(int fullWidth, int imageWidth, int extraRight) {
+        int need = minPanelWidth(fullWidth) + 8; // 4 di distanza dalla finestra + 4 dal bordo
+        int avail = fullWidth - imageWidth - extraRight;
+        if (avail < need) return -1;
+        // se c'è posto, sposta un po' di più per dare al pannello fino a MAX_COLUMNS colonne,
+        // lasciando a sinistra lo spazio per il bottone WR
+        int want = Math.max(need, Math.min(MAX_COLUMNS * SLOT + 14 + 8, avail - LEFT_MARGIN));
+        int free = (fullWidth - imageWidth) / 2;
+        return Math.max(0, want + extraRight - free);
+    }
+
+    private static final int LEFT_MARGIN = 26; // bottone WR (20) + respiro
 
     /** Quanto stringere la larghezza della schermata per tenere tutto centrato. */
     public static int shiftFor(int fullWidth) {

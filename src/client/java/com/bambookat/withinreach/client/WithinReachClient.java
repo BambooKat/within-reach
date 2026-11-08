@@ -31,6 +31,17 @@ import net.minecraft.client.KeyMapping;
 public class WithinReachClient implements ClientModInitializer {
 	public static KeyMapping TOGGLE_KEY;
 
+	// larghezza in più occupata a destra da widget di altre mod (es. upgrade di TB), per la schermata corrente
+	private static net.minecraft.client.gui.screens.Screen extraScreen;
+	private static int extraWidth;
+	// i nostri widget dell'ultima init: servono per non ritrovarceli doppi
+	private static AbstractWidget[] ours = new AbstractWidget[0];
+
+	/** Usato anche dal mixin che sposta la finestra: larghezza "vera" = imageWidth + questo. */
+	public static int foreignExtra(Object screen) {
+		return screen == extraScreen ? extraWidth : 0;
+	}
+
 	@Override
 	public void onInitializeClient() {
 
@@ -94,7 +105,7 @@ public class WithinReachClient implements ClientModInitializer {
 
 			Runnable toggle = () -> {
 				boolean needsRoom = ChestPanelWidget.extraShift(
-						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth()) > 0;
+						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth(), foreignExtra(screen)) > 0;
 				if (recipeScreen || needsRoom) {
 					ChestPanelWidget.open = !ChestPanelWidget.open;
 					client.execute(() -> screen.init(scaledWidth, scaledHeight));
@@ -111,13 +122,30 @@ public class WithinReachClient implements ClientModInitializer {
 
 			Runnable reposition = () -> {
 				boolean allowed = panelAllowed(screen) && ChestPanelWidget.extraShift(
-						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth()) >= 0;
+						client.getWindow().getGuiScaledWidth(), accessor.getImageWidth(), foreignExtra(screen)) >= 0;
 				panel.visible = ChestPanelWidget.open && allowed;
 				button.visible = allowed;
 				int fullWidth = client.getWindow().getGuiScaledWidth();
 				int left = accessor.getLeftPos();
 				int top = accessor.getTopPos();
-				int panelX = left + accessor.getImageWidth() + 4;
+				// alcune mod (es. le schede upgrade di Traveler's Backpack) attaccano widget al lato destro: il pannello va dopo
+				int baseRight = left + accessor.getImageWidth();
+				int guiRight = foreignRightEdge(screen, baseRight, top,
+						accessor.getImageHeight(), panel, searchBox, button);
+				int rawExtra = guiRight - baseRight;
+				// se non c'è abbastanza spazio per tutto, meglio coprire un pezzo di linguetta che far sparire il pannello
+				int room = fullWidth - accessor.getImageWidth() - ChestPanelWidget.minPanelWidth(fullWidth) - 8;
+				int extra = Math.max(0, Math.min(rawExtra, room));
+				if (extra != foreignExtra(screen)) {
+					// cambiato (es. hai aperto/chiuso un upgrade di TB): se il pannello è aperto, rifai spazio spostando la finestra
+					WithinReach.LOGGER.info("[WR] spazio extra a destra: {} (misurato {}, disponibile {})", extra, rawExtra, room);
+					extraScreen = screen;
+					extraWidth = extra;
+					if (ChestPanelWidget.open && !recipeScreen && !(screen instanceof CreativeModeInventoryScreen)) {
+						client.execute(() -> screen.init(scaledWidth, scaledHeight));
+					}
+				}
+				int panelX = baseRight + extra + 4;
 				int panelY = Math.max(0, top - ChestPanelWidget.TABS_H);
 				panel.layout(fullWidth - panelX - 4);
 				panel.setX(panelX);
@@ -136,6 +164,8 @@ public class WithinReachClient implements ClientModInitializer {
 			};
 			reposition.run();
 
+			Screens.getWidgets(screen).removeAll(java.util.Arrays.asList(ours)); // niente doppioni se la schermata non si è svuotata
+			ours = new AbstractWidget[]{panel, searchBox, button};
 			Screens.getWidgets(screen).add(panel);
 			Screens.getWidgets(screen).add(searchBox);
 			Screens.getWidgets(screen).add(button);
@@ -169,6 +199,14 @@ public class WithinReachClient implements ClientModInitializer {
 			});
 
 			ScreenEvents.beforeExtract(screen).register((s, graphics, mouseX, mouseY, delta) -> {
+				// alcune mod (es. TB quando apri/chiudi un upgrade) svuotano i widget e rifanno init() da sole,
+				// senza passare dagli eventi di Fabric: rimettiamo i nostri
+				var widgets = Screens.getWidgets(s);
+				if (!widgets.contains(panel)) {
+					widgets.add(panel);
+					widgets.add(searchBox);
+					widgets.add(button);
+				}
 				if (button.dragging) {
 					int maxX = client.getWindow().getGuiScaledWidth() - button.getWidth();
 					int maxY = client.getWindow().getGuiScaledHeight() - button.getHeight();
@@ -222,13 +260,31 @@ public class WithinReachClient implements ClientModInitializer {
 		return candidates[0];
 	}
 
+	/** Bordo destro "reale": allarga quello della GUI ai widget di altre mod attaccati a destra. */
+	private static int foreignRightEdge(net.minecraft.client.gui.screens.Screen screen, int right, int top, int imageH,
+			AbstractWidget... mine) {
+		java.util.List<int[]> rects = ForeignWidgets.rects(screen, mine);
+		int guiRight = right;
+		boolean changed = true;
+		while (changed) {
+			changed = false;
+			for (int[] r : rects) {
+				int rRight = r[0] + r[2];
+				// parte dal bordo della GUI (o da dopo), non da dentro la GUI, e si attacca a quello che abbiamo già contato
+				boolean touches = r[0] >= guiRight - 10 && r[0] <= right + 2 && rRight > right;
+				boolean beside = r[1] < top + imageH && r[1] + r[3] > top;
+				if (touches && beside && rRight - right <= 140) { // oltre 140 px non è una "linguetta", lo ignoriamo
+					right = rRight;
+					changed = true;
+				}
+			}
+		}
+		return right;
+	}
+
 	private static boolean occupied(net.minecraft.client.gui.screens.Screen screen, int x, int y, AbstractWidget... mine) {
-		outer:
-		for (AbstractWidget w : Screens.getWidgets(screen)) {
-			for (AbstractWidget m : mine) if (w == m) continue outer;
-			if (!w.visible) continue;
-			if (x < w.getX() + w.getWidth() && x + 20 > w.getX()
-					&& y < w.getY() + w.getHeight() && y + 18 > w.getY()) return true;
+		for (int[] r : ForeignWidgets.rects(screen, mine)) {
+			if (x < r[0] + r[2] && x + 20 > r[0] && y < r[1] + r[3] && y + 18 > r[1]) return true;
 		}
 		return false;
 	}
@@ -237,4 +293,4 @@ public class WithinReachClient implements ClientModInitializer {
 		if (!(screen instanceof CreativeModeInventoryScreen)) return true;
 		return CreativeInventoryScreenAccessor.getSelectedTab().getType() == CreativeModeTab.Type.INVENTORY;
 	}
-}
+}

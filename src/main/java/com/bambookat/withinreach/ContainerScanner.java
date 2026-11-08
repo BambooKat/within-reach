@@ -35,6 +35,11 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.SlottedStorage;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 
 public class ContainerScanner {
 
@@ -43,12 +48,17 @@ public class ContainerScanner {
 
     private static final TagKey<Block> STORAGE = TagKey.create(Registries.BLOCK, WithinReach.id("storage"));
     private static final TagKey<Block> MACHINES = TagKey.create(Registries.BLOCK, WithinReach.id("machines"));
+    // depositi per tipo di block entity: comodo quando una mod ha tanti blocchi con lo stesso inventario (es. 40+ zaini di TB)
+    private static final TagKey<BlockEntityType<?>> STORAGE_BE =
+            TagKey.create(Registries.BLOCK_ENTITY_TYPE, WithinReach.id("storage"));
     private static final BlockPos ENDER_KEY = new BlockPos(0, -2048, 0);
+    private static final BlockPos WORN_BACKPACK_KEY = new BlockPos(0, -2049, 0);
 
     private static boolean isStorage(BlockEntity be) {
         if (be instanceof TrappedChestBlockEntity) return false;
         return be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity
-                || be instanceof ShulkerBoxBlockEntity || be.getBlockState().is(STORAGE);
+                || be instanceof ShulkerBoxBlockEntity || be.getBlockState().is(STORAGE)
+                || BuiltInRegistries.BLOCK_ENTITY_TYPE.wrapAsHolder(be.getType()).is(STORAGE_BE);
     }
 
     private static boolean isMachine(BlockEntity be) {
@@ -92,7 +102,6 @@ public class ContainerScanner {
                         }
                         continue;
                     }
-                    if (!(be instanceof Container)) continue;
                     if (!isStorage(be) && !isMachine(be)) continue;
                     BlockPos p = be.getBlockPos();
                     if (Math.abs(p.getX() - center.getX()) > radius
@@ -100,11 +109,19 @@ public class ContainerScanner {
                             || Math.abs(p.getZ() - center.getZ()) > radius) continue;
                     if (be instanceof BaseContainerBlockEntity locked && !locked.canOpen(player)) continue;
                     if (be instanceof RandomizableContainer loot && loot.getLootTable() != null) continue;
-                    result.add((Container) be);
+                    if (be instanceof Container c) {
+                        result.add(c);
+                    } else if (isStorage(be)) {
+                        // depositi delle mod con la Transfer API di Fabric invece del Container vanilla
+                        Storage<ItemVariant> st = ItemStorage.SIDED.find(level, p, be.getBlockState(), be, null);
+                        if (st instanceof SlottedStorage<ItemVariant> slotted) result.add(new StorageContainer(slotted, be));
+                    }
                 }
             }
         }
         if (enderNear) result.add(player.getEnderChestInventory());
+        Container backpack = TravelersBackpackCompat.worn(player); // lo zaino addosso è sempre "a portata"
+        if (backpack != null) result.add(backpack);
 
         return result;
     }
@@ -135,6 +152,8 @@ public class ContainerScanner {
     private static Component nameOf(Container c) {
         if (c instanceof PlayerEnderChestContainer) return Component.translatable("container.enderchest");
         if (c instanceof BaseContainerBlockEntity named) return named.getDisplayName();
+        if (c instanceof StorageContainer sc) return sc.name();
+        if (c instanceof TravelersBackpackCompat.Worn worn) return worn.name();
         return Component.translatable("container.chest");
     }
 
@@ -178,7 +197,8 @@ public class ContainerScanner {
     private static void remember(ServerPlayer player, Item item, Container c) {
         BlockPos pos;
         if (c instanceof PlayerEnderChestContainer) pos = ENDER_KEY;
-        else if (c instanceof BlockEntity be) pos = be.getBlockPos().immutable();
+        else if (c instanceof TravelersBackpackCompat.Worn) pos = WORN_BACKPACK_KEY;
+        else if (posOf(c) != null) pos = posOf(c).immutable();
         else return;
         Set<BlockPos> set = ORIGINS.computeIfAbsent(player.getUUID(), k -> new HashMap<>())
                 .computeIfAbsent(item, k -> new LinkedHashSet<>());
@@ -245,8 +265,9 @@ public class ContainerScanner {
         List<Container> originContainers = new ArrayList<>();
         for (BlockPos pos : order) {
             for (Container c : all) {
-                if ((c instanceof BlockEntity be && be.getBlockPos().equals(pos))
-                        || (pos.equals(ENDER_KEY) && c instanceof PlayerEnderChestContainer)) {
+                if (pos.equals(posOf(c))
+                        || (pos.equals(ENDER_KEY) && c instanceof PlayerEnderChestContainer)
+                        || (pos.equals(WORN_BACKPACK_KEY) && c instanceof TravelersBackpackCompat.Worn)) {
                     originContainers.add(c);
                 }
             }
@@ -272,6 +293,12 @@ public class ContainerScanner {
         return remaining;
     }
 
+    private static BlockPos posOf(Container c) {
+        if (c instanceof BlockEntity be) return be.getBlockPos();
+        if (c instanceof StorageContainer sc) return sc.blockEntity().getBlockPos();
+        return null;
+    }
+
     private static boolean canPlace(Container c, int slot, ItemStack stack) {
         if (c instanceof ShulkerBoxBlockEntity && Block.byItem(stack.getItem()) instanceof ShulkerBoxBlock) return false;
         if (c instanceof WorldlyContainer w) return w.canPlaceItemThroughFace(slot, stack, Direction.UP);
@@ -281,13 +308,18 @@ public class ContainerScanner {
     private static void insertInto(List<Container> containers, ItemStack remaining) {
         // completa gli stack già presenti
         for (Container c : containers) {
+            if (c instanceof StorageContainer sc) { // la Transfer API riempie da sola prima gli stack esistenti
+                if (containsItem(c, remaining)) remaining.shrink(sc.insert(remaining));
+                continue;
+            }
             for (int i = 0; i < c.getContainerSize() && !remaining.isEmpty(); i++) {
                 ItemStack s = c.getItem(i);
                 if (!s.isEmpty() && ItemStack.isSameItemSameComponents(s, remaining) && canPlace(c, i, remaining)) {
                     int space = Math.min(c.getMaxStackSize(), s.getMaxStackSize()) - s.getCount();
                     int n = Math.min(space, remaining.getCount());
                     if (n > 0) {
-                        s.grow(n);
+                        // setItem e non s.grow(): alcune mod (es. TB) salvano solo quando passi dai loro metodi
+                        c.setItem(i, s.copyWithCount(s.getCount() + n));
                         remaining.shrink(n);
                         c.setChanged();
                     }
@@ -296,6 +328,10 @@ public class ContainerScanner {
         }
         // poi gli slot vuoti
         for (Container c : containers) {
+            if (c instanceof StorageContainer sc) {
+                remaining.shrink(sc.insert(remaining));
+                continue;
+            }
             for (int i = 0; i < c.getContainerSize() && !remaining.isEmpty(); i++) {
                 if (c.getItem(i).isEmpty() && canPlace(c, i, remaining)) {
                     int n = Math.min(remaining.getCount(), remaining.getMaxStackSize());
@@ -313,4 +349,4 @@ public class ContainerScanner {
         }
         return false;
     }
-}
+}
