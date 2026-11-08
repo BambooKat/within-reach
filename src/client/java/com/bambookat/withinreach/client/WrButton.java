@@ -17,11 +17,15 @@ public class WrButton extends AbstractWidget {
     private static final Identifier BACKGROUND = WithinReach.id("textures/gui/wrbutton.png");
 
     private final Runnable onPress;
+    private final Runnable onReset;
+    public boolean dragging;
+    public int grabX, grabY; // punto in cui hai afferrato il bottone, cosi' non "salta" sotto il mouse
     private ItemStack icon; // creato al primo disegno: gli item non esistono ancora nel menu principale
 
-    public WrButton(Runnable onPress) {
+    public WrButton(Runnable onPress, Runnable onReset) {
         super(0, 0, 20, 18, Component.translatable("withinreach.title"));
         this.onPress = onPress;
+        this.onReset = onReset;
     }
 
     @Override
@@ -43,8 +47,19 @@ public class WrButton extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (!this.visible || !this.active || event.button() != 0) return false;
+        if (!this.visible || !this.active) return false;
         if (!isMouseOver(event.x(), event.y())) return false;
+        if (event.button() == 2) { // click centrale: torna alla posizione automatica
+            onReset.run();
+            return true;
+        }
+        if (event.button() != 0) return false;
+        if (event.hasAltDown()) { // Alt+sinistro: inizia a trascinare
+            dragging = true;
+            grabX = (int) event.x() - getX();
+            grabY = (int) event.y() - getY();
+            return true;
+        }
         playDownSound(Minecraft.getInstance().getSoundManager());
         onPress.run();
         return true;

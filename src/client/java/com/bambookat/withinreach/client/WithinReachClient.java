@@ -12,6 +12,8 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractFurnaceScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
@@ -35,6 +37,8 @@ public class WithinReachClient implements ClientModInitializer {
 		KeyMapping.Category category = KeyMapping.Category.register(WithinReach.id("main"));
 		TOGGLE_KEY = KeyMappingHelper.registerKeyMapping(
 				new KeyMapping("key.withinreach.toggle", InputConstants.KEY_G, category));
+
+		ButtonPositions.load();
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.player == null || !ChestPanelWidget.open) return;
@@ -102,7 +106,8 @@ public class WithinReachClient implements ClientModInitializer {
 				}
 			};
 
-			WrButton button = new WrButton(toggle);
+			String posKey = positionKey(screen);
+			WrButton button = new WrButton(toggle, () -> ButtonPositions.reset(posKey));
 
 			Runnable reposition = () -> {
 				boolean allowed = panelAllowed(screen) && ChestPanelWidget.extraShift(
@@ -121,8 +126,13 @@ public class WithinReachClient implements ClientModInitializer {
 				searchBox.setY(panelY + ChestPanelWidget.TABS_H + 20);
 				searchBox.setWidth(panel.searchWidth() - 8);
 				searchBox.visible = panel.visible;
-				button.setX(left + bx);
-				button.setY(top + by);
+				if (button.dragging) return; // durante il trascinamento la posizione la decide il mouse
+				int[] saved = ButtonPositions.get(posKey);
+				int[] pos = saved != null ? saved
+						: autoPosition(screen, bx, by, recipeScreen, left, top,
+								accessor.getImageWidth(), accessor.getImageHeight(), panel, searchBox, button);
+				button.setX(left + pos[0]);
+				button.setY(top + pos[1]);
 			};
 			reposition.run();
 
@@ -149,7 +159,22 @@ public class WithinReachClient implements ClientModInitializer {
 			ScreenMouseEvents.allowMouseRelease(screen).register((s, event) ->
 					!(panel.visible && panel.isMouseOver(event.x(), event.y())));
 
+			// fine trascinamento: salva la posizione relativa all'inventario
+			ScreenMouseEvents.allowMouseRelease(screen).register((s, event) -> {
+				if (!button.dragging) return true;
+				button.dragging = false;
+				ButtonPositions.set(posKey,
+						button.getX() - accessor.getLeftPos(), button.getY() - accessor.getTopPos());
+				return false;
+			});
+
 			ScreenEvents.beforeExtract(screen).register((s, graphics, mouseX, mouseY, delta) -> {
+				if (button.dragging) {
+					int maxX = client.getWindow().getGuiScaledWidth() - button.getWidth();
+					int maxY = client.getWindow().getGuiScaledHeight() - button.getHeight();
+					button.setX(Math.max(0, Math.min(maxX, mouseX - button.grabX)));
+					button.setY(Math.max(0, Math.min(maxY, mouseY - button.grabY)));
+				}
 				reposition.run();
 				int fullWidth = client.getWindow().getGuiScaledWidth();
 				if (fullWidth > s.width) {
@@ -163,6 +188,49 @@ public class WithinReachClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new RequestListPayload());
 			}
 		});
+	}
+
+	private static String positionKey(net.minecraft.client.gui.screens.Screen screen) {
+		if (screen instanceof CreativeModeInventoryScreen) return "creative";
+		if (screen instanceof InventoryScreen) return "inventory";
+		if (screen instanceof CraftingScreen) return "crafting";
+		if (screen instanceof AbstractFurnaceScreen<?>) return "furnace";
+		return "container";
+	}
+
+	/** Prima posizione libera tra i candidati; relativa all'angolo dell'inventario. */
+	private static int[] autoPosition(net.minecraft.client.gui.screens.Screen screen, int bx, int by,
+			boolean recipeScreen, int left, int top, int imageW, int imageH,
+			AbstractWidget... mine) {
+		// IPN disegna i suoi bottoni (ordina, profili) proprio accanto al ricettario e non sono widget "veri"
+		boolean ipn = FabricLoader.getInstance().isModLoaded("inventoryprofilesnext");
+		int[][] candidates = {
+				{bx, by},                // posizione normale
+				{imageW - 20, -20},      // sopra l'inventario, a destra
+				{0, -20},                // sopra l'inventario, a sinistra
+				{imageW - 20, imageH + 2}, // sotto l'inventario, a destra
+				{-22, 4},                // fuori a sinistra (non con il ricettario, che sta li')
+		};
+		for (int i = 0; i < candidates.length; i++) {
+			int[] c = candidates[i];
+			if (i == 0 && ipn && recipeScreen) continue;
+			if (i == 4 && recipeScreen) continue;
+			int x = left + c[0], y = top + c[1];
+			if (y < 0 || x < 0) continue;
+			if (!occupied(screen, x, y, mine)) return c;
+		}
+		return candidates[0];
+	}
+
+	private static boolean occupied(net.minecraft.client.gui.screens.Screen screen, int x, int y, AbstractWidget... mine) {
+		outer:
+		for (AbstractWidget w : Screens.getWidgets(screen)) {
+			for (AbstractWidget m : mine) if (w == m) continue outer;
+			if (!w.visible) continue;
+			if (x < w.getX() + w.getWidth() && x + 20 > w.getX()
+					&& y < w.getY() + w.getHeight() && y + 18 > w.getY()) return true;
+		}
+		return false;
 	}
 
 	private static boolean panelAllowed(net.minecraft.client.gui.screens.Screen screen) {
